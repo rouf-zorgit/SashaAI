@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Filter, Download } from 'lucide-react';
+import { Search, Filter, Download, X } from 'lucide-react';
 import { getUserTransactions, subscribeToTransactions, softDeleteTransaction } from '../lib/db/transactions';
 import { useAuthStore } from '../store/authStore';
 import type { Transaction } from '../types/supabase';
 import TransactionItem from '../components/TransactionItem';
 import EditTransactionModal from '../components/EditTransactionModal';
 import DeleteConfirmationDialog from '../components/DeleteConfirmationDialog';
+import FilterPanel, { type FilterState } from '../components/FilterPanel';
 
 const History: React.FC = () => {
     const { user } = useAuthStore();
@@ -19,6 +20,15 @@ const History: React.FC = () => {
     // Delete dialog state
     const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
+
+    // Filter state
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
+    const [filters, setFilters] = useState<FilterState>({
+        dateRange: { start: '', end: '' },
+        categories: [],
+        amountRange: { min: 0, max: 100000 },
+        merchant: ''
+    });
 
     useEffect(() => {
         if (!user) return;
@@ -45,10 +55,34 @@ const History: React.FC = () => {
         };
     }, [user]);
 
-    const filteredTransactions = transactions.filter(t =>
-        (t.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        t.category.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Get unique categories for filter
+    const availableCategories = Array.from(new Set(transactions.map(t => t.category)));
+
+    // Apply all filters
+    const filteredTransactions = transactions.filter(t => {
+        // Search filter
+        const matchesSearch = searchTerm === '' ||
+            (t.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+            t.category.toLowerCase().includes(searchTerm.toLowerCase());
+
+        // Date range filter
+        const matchesDateRange =
+            (!filters.dateRange.start || new Date(t.created_at) >= new Date(filters.dateRange.start)) &&
+            (!filters.dateRange.end || new Date(t.created_at) <= new Date(filters.dateRange.end));
+
+        // Category filter
+        const matchesCategory = filters.categories.length === 0 || filters.categories.includes(t.category);
+
+        // Amount range filter
+        const amount = Math.abs(t.amount);
+        const matchesAmount = amount >= filters.amountRange.min && amount <= filters.amountRange.max;
+
+        // Merchant filter
+        const matchesMerchant = filters.merchant === '' ||
+            (t.description?.toLowerCase() || '').includes(filters.merchant.toLowerCase());
+
+        return matchesSearch && matchesDateRange && matchesCategory && matchesAmount && matchesMerchant;
+    });
 
     const handleEdit = (transaction: Transaction) => {
         setEditingTransaction(transaction);
@@ -78,6 +112,41 @@ const History: React.FC = () => {
         // Transaction list will update automatically via subscription
     };
 
+    const handleApplyFilters = (newFilters: FilterState) => {
+        setFilters(newFilters);
+        // Persist to localStorage
+        localStorage.setItem('transactionFilters', JSON.stringify(newFilters));
+    };
+
+    const clearAllFilters = () => {
+        const emptyFilters: FilterState = {
+            dateRange: { start: '', end: '' },
+            categories: [],
+            amountRange: { min: 0, max: 100000 },
+            merchant: ''
+        };
+        setFilters(emptyFilters);
+        setSearchTerm('');
+        localStorage.removeItem('transactionFilters');
+    };
+
+    // Load filters from localStorage on mount
+    useEffect(() => {
+        const savedFilters = localStorage.getItem('transactionFilters');
+        if (savedFilters) {
+            setFilters(JSON.parse(savedFilters));
+        }
+    }, []);
+
+    // Check if any filters are active
+    const hasActiveFilters =
+        filters.dateRange.start !== '' ||
+        filters.dateRange.end !== '' ||
+        filters.categories.length > 0 ||
+        filters.amountRange.min > 0 ||
+        filters.amountRange.max < 100000 ||
+        filters.merchant !== '';
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -88,12 +157,52 @@ const History: React.FC = () => {
                         <Download size={20} />
                         <span className="hidden sm:inline">Export</span>
                     </button>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                    <button
+                        onClick={() => setShowFilterPanel(true)}
+                        className={`flex items-center gap-2 px-4 py-2 border rounded-lg font-medium ${hasActiveFilters
+                                ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                            }`}
+                    >
                         <Filter size={20} />
                         <span className="hidden sm:inline">Filter</span>
+                        {hasActiveFilters && (
+                            <span className="bg-white text-blue-600 px-2 py-0.5 rounded-full text-xs font-bold">
+                                {filters.categories.length + (filters.dateRange.start ? 1 : 0) + (filters.merchant ? 1 : 0)}
+                            </span>
+                        )}
                     </button>
                 </div>
             </div>
+
+            {/* Active Filters Display */}
+            {hasActiveFilters && (
+                <div className="flex flex-wrap items-center gap-2 p-4 bg-blue-50 rounded-lg">
+                    <span className="text-sm font-medium text-blue-900">Active Filters:</span>
+                    {filters.categories.map(cat => (
+                        <span key={cat} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+                            {cat}
+                        </span>
+                    ))}
+                    {filters.dateRange.start && (
+                        <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+                            From: {new Date(filters.dateRange.start).toLocaleDateString()}
+                        </span>
+                    )}
+                    {filters.merchant && (
+                        <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+                            Merchant: {filters.merchant}
+                        </span>
+                    )}
+                    <button
+                        onClick={clearAllFilters}
+                        className="ml-auto flex items-center gap-1 px-3 py-1 text-sm text-blue-700 hover:text-blue-900"
+                    >
+                        <X size={16} />
+                        Clear All
+                    </button>
+                </div>
+            )}
 
             {/* Search */}
             <div className="relative">
@@ -107,12 +216,21 @@ const History: React.FC = () => {
                 />
             </div>
 
+            {/* Results Count */}
+            {!loading && (
+                <div className="text-sm text-gray-500">
+                    Showing {filteredTransactions.length} of {transactions.length} transactions
+                </div>
+            )}
+
             {/* Transactions List */}
             <div className="space-y-4">
                 {loading ? (
                     <div className="text-center py-8 text-gray-500">Loading transactions...</div>
                 ) : filteredTransactions.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">No transactions found.</div>
+                    <div className="text-center py-8 text-gray-500">
+                        {transactions.length === 0 ? 'No transactions found.' : 'No transactions match your filters.'}
+                    </div>
                 ) : (
                     filteredTransactions.map((transaction) => (
                         <TransactionItem
@@ -146,6 +264,15 @@ const History: React.FC = () => {
                     loading={deleteLoading}
                 />
             )}
+
+            {/* Filter Panel */}
+            <FilterPanel
+                isOpen={showFilterPanel}
+                onClose={() => setShowFilterPanel(false)}
+                onApply={handleApplyFilters}
+                currentFilters={filters}
+                availableCategories={availableCategories}
+            />
         </div>
     );
 };
