@@ -288,8 +288,36 @@ export async function deleteTransaction(
 export async function undoLastTransaction(
     userId: string,
     supabaseClient: any
-): Promise<{ success: boolean; message: string; error?: string }> {
+): Promise<{ success: boolean; message: string; error?: string; needsClarification?: boolean; recentTransactions?: any[] }> {
     try {
+        // Check if there are multiple recent transactions (last 5 minutes)
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+
+        const { data: recentTransactions } = await supabaseClient
+            .from('transactions')
+            .select('*')
+            .eq('user_id', userId)
+            .is('deleted_at', null)
+            .gte('created_at', fiveMinutesAgo)
+            .order('created_at', { ascending: false })
+            .limit(5)
+
+        // If multiple transactions, ask for clarification
+        if (recentTransactions && recentTransactions.length > 1) {
+            return {
+                success: false,
+                message: `I see ${recentTransactions.length} recent transactions. Which one should I undo?`,
+                needsClarification: true,
+                recentTransactions: recentTransactions.map(t => ({
+                    id: t.id,
+                    amount: t.amount,
+                    category: t.category,
+                    merchant: t.merchant_name,
+                    created_at: t.created_at
+                }))
+            }
+        }
+
         // Get last undo stack entry
         const { data: lastUndo } = await supabaseClient
             .from('transaction_undo_stack')

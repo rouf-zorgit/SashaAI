@@ -6,7 +6,7 @@ import { checkForSpam } from './spam-controller.ts'
 import { extractFromMessage } from './memory-extractor.ts'
 import { buildCompleteContext } from './memory-injector.ts'
 import { generatePersonalityPrompt, enforceSimpleEnglish } from './personality.ts'
-import { extractSalaryInfo, extractFixedCosts, extractSalaryDay } from './ltm.ts'
+import { extractSalaryInfo, extractFixedCosts, extractSalaryDay, extractName } from './ltm.ts'
 import { trackTopic, trackCorrection, getSTMContext } from './stm.ts'
 import { generateEpisodicContext, logEpisode } from './episodic.ts'
 import { runPatternAnalysis, getPatternWarnings } from './patterns.ts'
@@ -105,6 +105,7 @@ serve(async (req) => {
         console.log(`✅ Extracted ${extractedEntities.length} entities`)
 
         // Also try specific LTM extractions
+        await extractName(message, userId, supabaseClient)
         await extractSalaryInfo(message, userId, supabaseClient)
         await extractFixedCosts(message, userId, supabaseClient)
         await extractSalaryDay(message, userId, supabaseClient)
@@ -245,6 +246,23 @@ Return JSON:
         if (classification.intent === 'UNDO' || message.toLowerCase().includes('undo')) {
             console.log(`\n↩️ UNDO REQUEST`)
             const undoResult = await undoLastTransaction(userId, supabaseClient)
+
+            // If needs clarification, list recent transactions
+            if (undoResult.needsClarification && undoResult.recentTransactions) {
+                const txList = undoResult.recentTransactions
+                    .map((t, i) => `${i + 1}. ${t.amount} BDT at ${t.merchant || t.category} (${new Date(t.created_at).toLocaleTimeString()})`)
+                    .join('\n')
+
+                return new Response(
+                    JSON.stringify({
+                        mode: 'conversation',
+                        reply: `${undoResult.message}\n\n${txList}\n\nTell me the number or describe which one.`,
+                        intent: 'clarification',
+                        confidence: 1.0
+                    }),
+                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
 
             return new Response(
                 JSON.stringify({

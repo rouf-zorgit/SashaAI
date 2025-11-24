@@ -91,6 +91,40 @@ export async function extractFixedCosts(
 }
 
 /**
+ * Extract user's name from message
+ */
+export async function extractName(
+    message: string,
+    userId: string,
+    supabaseClient: any
+): Promise<boolean> {
+    const namePatterns = [
+        /(?:my name is|i am|i'm|call me)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i,
+        /(?:name:)\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i
+    ]
+
+    for (const pattern of namePatterns) {
+        const match = message.match(pattern)
+        if (match) {
+            const name = match[1].trim()
+
+            // Validate name (at least 2 characters, not a number)
+            if (name.length >= 2 && !/^\d+$/.test(name)) {
+                await supabaseClient
+                    .from('profiles')
+                    .update({ name: name })
+                    .eq('id', userId)
+
+                console.log(`✅ Saved name: ${name}`)
+                return true
+            }
+        }
+    }
+
+    return false
+}
+
+/**
  * Extract salary day from message
  */
 export async function extractSalaryDay(
