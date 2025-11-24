@@ -1,5 +1,5 @@
-import { supabase } from '../supabase';
-import type { Transaction } from '../../types/supabase';
+import { supabase } from './supabase';
+
 
 interface UndoAction {
     id: string;

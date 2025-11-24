@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Crown, X } from 'lucide-react';
+import { Crown } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
-import { getSubscriptionStatus, hasFeatureAccess, FEATURES, type SubscriptionTier } from '../lib/subscription';
+import { getSubscriptionStatus, hasFeatureAccess, FEATURES } from '../lib/subscription';
 import { useNavigate } from 'react-router-dom';
 
 interface PaywallProps {
@@ -12,13 +12,11 @@ interface PaywallProps {
 export const Paywall: React.FC<PaywallProps> = ({ feature, children }) => {
     const { user } = useAuthStore();
     const navigate = useNavigate();
-    const [userTier, setUserTier] = useState<SubscriptionTier>('free');
     const [showPaywall, setShowPaywall] = useState(false);
 
     useEffect(() => {
         if (user) {
             getSubscriptionStatus(user.id).then(status => {
-                setUserTier(status.tier);
                 const hasAccess = hasFeatureAccess(feature, status.tier);
                 setShowPaywall(!hasAccess);
             });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Check, Trash2, AlertCircle, Lightbulb, Calendar } from 'lucide-react';
+import { Bell, AlertCircle, Lightbulb, Calendar } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { getUserNotifications, markNotificationRead, type Notification } from '../lib/notifications';
 import { useNavigate } from 'react-router-dom';
@@ -86,8 +86,8 @@ const Notifications: React.FC = () => {
                         key={tab}
                         onClick={() => setFilter(tab as any)}
                         className={`px-4 py-2 font-medium capitalize transition-colors ${filter === tab
-                                ? 'border-b-2 border-blue-600 text-blue-600'
-                                : 'text-gray-600 hover:text-gray-900'
+                            ? 'border-b-2 border-blue-600 text-blue-600'
+                            : 'text-gray-600 hover:text-gray-900'
                             }`}
                     >
                         {tab}
@@ -112,8 +112,8 @@ const Notifications: React.FC = () => {
                         <div
                             key={notification.id}
                             className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${notification.is_read
-                                    ? 'bg-white border-gray-200 opacity-60'
-                                    : `${getColor(notification.type)} border-2`
+                                ? 'bg-white border-gray-200 opacity-60'
+                                : `${getColor(notification.type)} border-2`
                                 }`}
                             onClick={() => !notification.is_read && handleMarkRead(notification)}
                         >

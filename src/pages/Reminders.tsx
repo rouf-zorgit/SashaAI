@@ -52,6 +52,7 @@ const Reminders: React.FC = () => {
                     category: 'Bills',
                     description: reminder.title,
                     is_confirmed: true,
+                    base_amount: reminder.amount,
                 });
                 await refreshTransactions();
             }
