@@ -46,13 +46,12 @@ const Reminders: React.FC = () => {
             if (reminder.amount) {
                 await createTransaction({
                     user_id: user!.id,
-                    amount: reminder.amount,
+                    amount: -Math.abs(reminder.amount), // Expenses are negative
                     currency: reminder.currency || 'BDT',
                     type: 'expense',
                     category: 'Bills',
                     description: reminder.title,
                     is_confirmed: true,
-                    base_amount: reminder.amount,
                 });
                 await refreshTransactions();
             }
