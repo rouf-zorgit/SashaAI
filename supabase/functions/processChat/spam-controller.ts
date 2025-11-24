@@ -6,7 +6,6 @@
 // ============================================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { createHash } from 'https://deno.land/std@0.168.0/hash/mod.ts'
 
 export interface SpamCheckResult {
     isSpam: boolean
@@ -17,12 +16,17 @@ export interface SpamCheckResult {
 
 /**
  * Generate hash for message to detect duplicates
+ * Simple string hash function (no external dependencies)
  */
 function hashMessage(message: string): string {
     const normalized = message.toLowerCase().trim().replace(/\s+/g, ' ')
-    const hash = createHash('md5')
-    hash.update(normalized)
-    return hash.toString()
+    let hash = 0
+    for (let i = 0; i < normalized.length; i++) {
+        const char = normalized.charCodeAt(i)
+        hash = ((hash << 5) - hash) + char
+        hash = hash & hash // Convert to 32-bit integer
+    }
+    return hash.toString(36)
 }
 
 /**

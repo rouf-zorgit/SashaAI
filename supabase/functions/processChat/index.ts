@@ -346,66 +346,79 @@ Return JSON:
         // =====================================================================
         // SYSTEM 6: TRANSACTION BRAIN - Handle Multiple Transactions
         // =====================================================================
-        if (classification.intent === 'TRANSACTION' && aiResponse.transactions && aiResponse.transactions.length > 0) {
-            console.log(`\n💰 PROCESSING ${aiResponse.transactions.length} TRANSACTION(S)...`)
+        try {
+            if (classification.intent === 'TRANSACTION' && aiResponse.transactions && Array.isArray(aiResponse.transactions) && aiResponse.transactions.length > 0) {
+                console.log(`\n💰 PROCESSING ${aiResponse.transactions.length} TRANSACTION(S)...`)
 
-            const savedTransactions = []
-            const failedTransactions = []
+                const savedTransactions = []
+                const failedTransactions = []
 
-            for (const transaction of aiResponse.transactions) {
-                const transactionData: TransactionData = {
-                    ...transaction,
-                    occurred_at: new Date().toISOString(),
-                    source: 'chat' as const,
-                    confidence: classification.confidence
+                for (const transaction of aiResponse.transactions) {
+                    try {
+                        const transactionData: TransactionData = {
+                            ...transaction,
+                            occurred_at: new Date().toISOString(),
+                            source: 'chat' as const,
+                            confidence: classification.confidence
+                        }
+
+                        // Validate
+                        const validation = await validateTransaction(transactionData, userId, supabaseClient)
+
+                        if (!validation.isValid) {
+                            console.log(`❌ Validation failed for ${transaction.amount} BDT: ${validation.errors.join(', ')}`)
+                            failedTransactions.push(transaction)
+                            continue
+                        }
+
+                        if (validation.warnings.length > 0) {
+                            console.log(`⚠️ Warnings for ${transaction.amount} BDT: ${validation.warnings.join(', ')}`)
+                            // For now, skip transactions with warnings
+                            continue
+                        }
+
+                        // Save transaction
+                        const saveResult = await saveTransaction(transactionData, userId, supabaseClient)
+
+                        if (saveResult.success) {
+                            console.log(`✅ Transaction saved: ${saveResult.transactionId}`)
+                            savedTransactions.push(transaction)
+
+                            // Log episodic event
+                            await logEpisode(
+                                userId,
+                                'transaction',
+                                `${transaction.type === 'income' ? 'Earned' : 'Spent'} ${transactionData.amount} BDT on ${transactionData.category}`,
+                                transactionData,
+                                transactionData.amount > 5000 ? 7 : 5,
+                                supabaseClient
+                            )
+                        } else {
+                            console.log(`❌ Save failed for ${transaction.amount} BDT: ${saveResult.error}`)
+                            failedTransactions.push(transaction)
+                        }
+                    } catch (txError) {
+                        console.error(`❌ Error processing transaction:`, txError)
+                        failedTransactions.push(transaction)
+                    }
                 }
 
-                // Validate
-                const validation = await validateTransaction(transactionData, userId, supabaseClient)
-
-                if (!validation.isValid) {
-                    console.log(`❌ Validation failed for ${transaction.amount} BDT: ${validation.errors.join(', ')}`)
-                    failedTransactions.push(transaction)
-                    continue
+                // Update reply with results
+                if (savedTransactions.length > 0) {
+                    const summary = savedTransactions.map(t => `${t.amount} BDT (${t.category})`).join(', ')
+                    aiResponse.reply = `Done! Saved ${savedTransactions.length} transaction(s): ${summary}.`
                 }
 
-                if (validation.warnings.length > 0) {
-                    console.log(`⚠️ Warnings for ${transaction.amount} BDT: ${validation.warnings.join(', ')}`)
-                    // For now, skip transactions with warnings
-                    continue
+                if (failedTransactions.length > 0) {
+                    aiResponse.reply += ` ${failedTransactions.length} failed.`
                 }
-
-                // Save transaction
-                const saveResult = await saveTransaction(transactionData, userId, supabaseClient)
-
-                if (saveResult.success) {
-                    console.log(`✅ Transaction saved: ${saveResult.transactionId}`)
-                    savedTransactions.push(transaction)
-
-                    // Log episodic event
-                    await logEpisode(
-                        userId,
-                        'transaction',
-                        `${transaction.type === 'income' ? 'Earned' : 'Spent'} ${transactionData.amount} BDT on ${transactionData.category}`,
-                        transactionData,
-                        transactionData.amount > 5000 ? 7 : 5,
-                        supabaseClient
-                    )
-                } else {
-                    console.log(`❌ Save failed for ${transaction.amount} BDT: ${saveResult.error}`)
-                    failedTransactions.push(transaction)
-                }
+            } else if (classification.intent === 'TRANSACTION') {
+                console.log(`⚠️ Transaction intent but no valid transactions array`)
+                aiResponse.reply = aiResponse.reply || "I understood you want to log a transaction, but I couldn't extract the details. Can you try again?"
             }
-
-            // Update reply with results
-            if (savedTransactions.length > 0) {
-                const summary = savedTransactions.map(t => `${t.amount} BDT (${t.category})`).join(', ')
-                aiResponse.reply = `Done! Saved ${savedTransactions.length} transaction(s): ${summary}.`
-            }
-
-            if (failedTransactions.length > 0) {
-                aiResponse.reply += ` ${failedTransactions.length} failed.`
-            }
+        } catch (error) {
+            console.error(`❌ Transaction processing error:`, error)
+            aiResponse.reply = "I had trouble processing that transaction. Can you try again?"
         }
 
         // =====================================================================
