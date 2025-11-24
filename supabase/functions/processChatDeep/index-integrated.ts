@@ -1,14 +1,15 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Import Fast Mode Systems
+// Import all 8 AI systems
 import { checkForSpam } from './spam-controller.ts'
 import { extractFromMessage } from './memory-extractor.ts'
 import { buildCompleteContext } from './memory-injector.ts'
 import { generatePersonalityPrompt, enforceSimpleEnglish } from './personality.ts'
-import { getSTMContext } from './stm.ts'
-import { generateEpisodicContext } from './episodic.ts'
-import { getPatternWarnings } from './patterns.ts'
+import { extractSalaryInfo, extractFixedCosts, extractSalaryDay } from './ltm.ts'
+import { trackTopic, trackCorrection, getSTMContext } from './stm.ts'
+import { generateEpisodicContext, logEpisode } from './episodic.ts'
+import { runPatternAnalysis, getPatternWarnings } from './patterns.ts'
 import { validateTransaction, saveTransaction, undoLastTransaction, type TransactionData } from './transaction-brain.ts'
 import { detectEmotion } from './utils.ts'
 import type { ChatRequest, ChatResponse } from './types.ts'
@@ -40,16 +41,18 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        console.log(`\n========== FAST MODE PROCESSING ==========`)
+        console.log(`\n========== PROCESSING MESSAGE ==========`)
         console.log(`User: ${userId}`)
         console.log(`Session: ${sessionId}`)
+        console.log(`Message: ${message}`)
 
         // =====================================================================
-        // SYSTEM 7: SPAM/REPETITION CONTROLLER (FAST)
+        // SYSTEM 7: SPAM/REPETITION CONTROLLER
         // =====================================================================
         const spamCheck = await checkForSpam(message, userId, sessionId, recentMessages, supabaseClient)
 
         if (spamCheck.isSpam && spamCheck.shouldStop) {
+            console.log(`🚫 SPAM DETECTED: Stopping response (count: ${spamCheck.repetitionCount})`)
             return new Response(
                 JSON.stringify({
                     mode: 'conversation',
@@ -61,45 +64,105 @@ serve(async (req) => {
             )
         }
 
+        if (spamCheck.isSpam) {
+            console.log(`⚠️ SPAM WARNING: Escalating (count: ${spamCheck.repetitionCount})`)
+            return new Response(
+                JSON.stringify({
+                    mode: 'conversation',
+                    reply: spamCheck.response,
+                    intent: 'spam_warning',
+                    confidence: 1.0
+                }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
         // =====================================================================
-        // EMOTION DETECTION (FAST - READ ONLY)
+        // EMOTION DETECTION
         // =====================================================================
         const { emotion: detectedEmotion, intensity: emotionIntensity } = detectEmotion(message)
-        // Note: We DO NOT save emotion here. That happens in Deep Mode.
+        console.log(`😊 Emotion: ${detectedEmotion} (intensity: ${emotionIntensity})`)
+
+        // Save emotional state
+        if (detectedEmotion !== 'neutral') {
+            try {
+                await supabaseClient.from('user_emotional_state').insert({
+                    user_id: userId,
+                    emotion: detectedEmotion,
+                    intensity: emotionIntensity,
+                    context: message.substring(0, 200)
+                })
+            } catch (error) {
+                console.error('Failed to save emotional state:', error)
+            }
+        }
 
         // =====================================================================
-        // SYSTEM 8: MEMORY EXTRACTION (FAST - ENTITIES ONLY)
+        // SYSTEM 8: MEMORY EXTRACTION
         // =====================================================================
+        console.log(`\n🧠 EXTRACTING ENTITIES...`)
         const extractedEntities = await extractFromMessage(message, userId, openaiKey, supabaseClient)
+        console.log(`✅ Extracted ${extractedEntities.length} entities`)
 
-        // Note: Deep LTM extraction (salary, costs) moved to Deep Mode.
+        // Also try specific LTM extractions
+        await extractSalaryInfo(message, userId, supabaseClient)
+        await extractFixedCosts(message, userId, supabaseClient)
+        await extractSalaryDay(message, userId, supabaseClient)
 
         // =====================================================================
-        // RETRIEVE MEMORY DATA (FAST - READ ONLY)
+        // RETRIEVE ALL MEMORY DATA
         // =====================================================================
-        const [
-            { data: profile },
-            { data: preferences },
-            { data: spendingPatterns },
-            { data: memoryEvents },
-            sessionContext,
-            { data: recentEpisodes },
-            { data: detectedPatterns },
-            { data: recurringBills }
-        ] = await Promise.all([
-            supabaseClient.from('profiles').select('*').eq('id', userId).single(),
-            supabaseClient.from('user_preferences').select('*').eq('user_id', userId).single(),
-            supabaseClient.from('user_spending_patterns').select('*').eq('user_id', userId).single(),
-            supabaseClient.from('memory_events').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5),
-            getSTMContext(userId, sessionId, supabaseClient),
-            supabaseClient.from('episodic_events').select('*').eq('user_id', userId).order('occurred_at', { ascending: false }).limit(5),
-            supabaseClient.from('spending_patterns').select('*').eq('user_id', userId),
-            supabaseClient.from('recurring_payments').select('*').eq('user_id', userId).eq('is_active', true)
-        ])
+        console.log(`\n📚 RETRIEVING MEMORIES...`)
+
+        const { data: profile } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single()
+
+        const { data: preferences } = await supabaseClient
+            .from('user_preferences')
+            .select('*')
+            .eq('user_id', userId)
+            .single()
+
+        const { data: spendingPatterns } = await supabaseClient
+            .from('user_spending_patterns')
+            .select('*')
+            .eq('user_id', userId)
+            .single()
+
+        const { data: memoryEvents } = await supabaseClient
+            .from('memory_events')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(5)
+
+        const sessionContext = await getSTMContext(userId, sessionId, supabaseClient)
+
+        const { data: recentEpisodes } = await supabaseClient
+            .from('episodic_events')
+            .select('*')
+            .eq('user_id', userId)
+            .order('occurred_at', { ascending: false })
+            .limit(5)
+
+        const { data: detectedPatterns } = await supabaseClient
+            .from('spending_patterns')
+            .select('*')
+            .eq('user_id', userId)
+
+        const { data: recurringBills } = await supabaseClient
+            .from('recurring_payments')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('is_active', true)
 
         // =====================================================================
         // SYSTEM 8: MEMORY INJECTION
         // =====================================================================
+        console.log(`\n💉 BUILDING MEMORY CONTEXT...`)
         const memoryContext = buildCompleteContext({
             profile,
             preferences,
@@ -111,20 +174,23 @@ serve(async (req) => {
             recurringBills: recurringBills || []
         })
 
-        // Add episodic context (Read only)
+        // Add episodic context
         const episodicContext = await generateEpisodicContext(userId, supabaseClient)
 
-        // Add pattern warnings (Read only)
+        // Add pattern warnings
         const patternWarnings = await getPatternWarnings(userId, supabaseClient)
 
         // =====================================================================
         // SYSTEM 4: PERSONALITY SYSTEM
         // =====================================================================
+        console.log(`\n🎭 GENERATING PERSONALITY PROMPT...`)
         const personalityPrompt = generatePersonalityPrompt(detectedEmotion, emotionIntensity, preferences)
 
         // =====================================================================
         // AI CLASSIFICATION
         // =====================================================================
+        console.log(`\n🤖 CLASSIFYING INTENT...`)
+
         const classificationPrompt = `
 ${memoryContext}
 
@@ -169,29 +235,16 @@ Return JSON:
         const classificationData = await classificationResponse.json()
         const classification = JSON.parse(classificationData.choices[0].message.content)
 
+        console.log(`✅ Intent: ${classification.intent} (confidence: ${classification.confidence})`)
+
         // =====================================================================
         // HANDLE SPECIAL INTENTS
         // =====================================================================
 
-        // SYSTEM 6: UNDO TRANSACTION (FAST)
+        // SYSTEM 6: UNDO TRANSACTION
         if (classification.intent === 'UNDO' || message.toLowerCase().includes('undo')) {
+            console.log(`\n↩️ UNDO REQUEST`)
             const undoResult = await undoLastTransaction(userId, supabaseClient)
-
-            if (undoResult.needsClarification && undoResult.recentTransactions) {
-                const txList = undoResult.recentTransactions
-                    .map((t, i) => `${i + 1}. ${t.amount} BDT at ${t.merchant || t.category} (${new Date(t.created_at).toLocaleTimeString()})`)
-                    .join('\n')
-
-                return new Response(
-                    JSON.stringify({
-                        mode: 'conversation',
-                        reply: `${undoResult.message}\n\n${txList}\n\nTell me the number or describe which one.`,
-                        intent: 'clarification',
-                        confidence: 1.0
-                    }),
-                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-                )
-            }
 
             return new Response(
                 JSON.stringify({
@@ -207,42 +260,32 @@ Return JSON:
         // =====================================================================
         // GENERATE AI RESPONSE
         // =====================================================================
-        const completeSystemPrompt = `
+        console.log(`\n💬 GENERATING RESPONSE...`)
+
+        const finalPrompt = `
 ${personalityPrompt}
 
-=== USER MEMORY (USE THIS!) ===
 ${memoryContext}
 
 ${episodicContext}
 
 ${patternWarnings}
 
-CRITICAL RULES:
-1. ALWAYS check USER MEMORY before responding
-2. If user's name is in memory, USE IT - never say "I don't know"
-3. If salary is in memory, reference it - never ask again
-4. Extract ALL transactions from message (can be multiple)
-5. For undo requests, check transaction_undo_stack
-
 USER MESSAGE: "${message}"
 INTENT: ${classification.intent}
 
-If this message contains transactions:
-- Extract ALL of them
-- Return array of transactions
+Generate a response following your personality. If this is a transaction, extract details and confirm.
 
 Return JSON:
 {
-  "reply": "your response using memory (max 2 sentences)",
-  "transactions": [
-    {
-      "amount": number,
-      "category": string,
-      "merchant": string,
-      "type": "expense" | "income",
-      "currency": "BDT"
-    }
-  ]
+  "reply": "your response (max 2 sentences)",
+  "transaction": {
+    "amount": number,
+    "category": string,
+    "merchant": string,
+    "type": "expense" | "income",
+    "currency": "BDT"
+  } (only if TRANSACTION intent)
 }
 `
 
@@ -255,7 +298,8 @@ Return JSON:
             body: JSON.stringify({
                 model: 'gpt-4o-mini',
                 messages: [
-                    { role: 'system', content: completeSystemPrompt },
+                    { role: 'system', content: personalityPrompt },
+                    ...recentMessages.slice(-3),
                     { role: 'user', content: message }
                 ],
                 temperature: 0.7,
@@ -270,65 +314,77 @@ Return JSON:
         aiResponse.reply = enforceSimpleEnglish(aiResponse.reply)
 
         // =====================================================================
-        // SYSTEM 6: TRANSACTION BRAIN (FAST - SAVE ONLY)
+        // SYSTEM 6: TRANSACTION BRAIN
         // =====================================================================
-        try {
-            if (classification.intent === 'TRANSACTION' && aiResponse.transactions && Array.isArray(aiResponse.transactions) && aiResponse.transactions.length > 0) {
-                const savedTransactions = []
-                const failedTransactions = []
+        if (classification.intent === 'TRANSACTION' && aiResponse.transaction) {
+            console.log(`\n💰 PROCESSING TRANSACTION...`)
 
-                for (const transaction of aiResponse.transactions) {
-                    try {
-                        const transactionData: TransactionData = {
-                            ...transaction,
-                            occurred_at: new Date().toISOString(),
-                            source: 'chat' as const,
-                            confidence: classification.confidence
-                        }
-
-                        const validation = await validateTransaction(transactionData, userId, supabaseClient)
-
-                        if (!validation.isValid) {
-                            failedTransactions.push(transaction)
-                            continue
-                        }
-
-                        if (validation.warnings.length > 0) {
-                            // For now, skip transactions with warnings
-                            continue
-                        }
-
-                        const saveResult = await saveTransaction(transactionData, userId, supabaseClient)
-
-                        if (saveResult.success) {
-                            savedTransactions.push(transaction)
-                            // Note: Episodic logging moved to Deep Mode
-                        } else {
-                            failedTransactions.push(transaction)
-                        }
-                    } catch (txError) {
-                        failedTransactions.push(transaction)
-                    }
-                }
-
-                if (savedTransactions.length > 0) {
-                    const summary = savedTransactions.map(t => `${t.amount} BDT (${t.category})`).join(', ')
-                    aiResponse.reply = `Done! Saved ${savedTransactions.length} transaction(s): ${summary}.`
-                }
-
-                if (failedTransactions.length > 0) {
-                    aiResponse.reply += ` ${failedTransactions.length} failed.`
-                }
-            } else if (classification.intent === 'TRANSACTION') {
-                aiResponse.reply = aiResponse.reply || "I understood you want to log a transaction, but I couldn't extract the details. Can you try again?"
+            const transactionData: TransactionData = {
+                ...aiResponse.transaction,
+                occurred_at: new Date().toISOString(),
+                source: 'chat' as const,
+                confidence: classification.confidence
             }
-        } catch (error) {
-            aiResponse.reply = "I had trouble processing that transaction. Can you try again?"
+
+            // Validate
+            const validation = await validateTransaction(transactionData, userId, supabaseClient)
+
+            if (!validation.isValid) {
+                console.log(`❌ Validation failed: ${validation.errors.join(', ')}`)
+                return new Response(
+                    JSON.stringify({
+                        mode: 'conversation',
+                        reply: `Validation error: ${validation.errors.join(', ')}`,
+                        intent: 'error',
+                        confidence: 1.0
+                    }),
+                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+
+            if (validation.warnings.length > 0) {
+                console.log(`⚠️ Warnings: ${validation.warnings.join(', ')}`)
+                aiResponse.reply = `${validation.warnings[0]} Confirm?`
+            } else {
+                // Save transaction
+                const saveResult = await saveTransaction(transactionData, userId, supabaseClient)
+
+                if (saveResult.success) {
+                    console.log(`✅ Transaction saved: ${saveResult.transactionId}`)
+
+                    // Log episodic event
+                    await logEpisode(
+                        userId,
+                        'transaction',
+                        `Spent ${transactionData.amount} BDT on ${transactionData.category}`,
+                        transactionData,
+                        transactionData.amount > 5000 ? 7 : 5,
+                        supabaseClient
+                    )
+                } else {
+                    console.log(`❌ Save failed: ${saveResult.error}`)
+                    aiResponse.reply = `Failed to save: ${saveResult.error}`
+                }
+            }
         }
 
         // =====================================================================
-        // RETURN RESPONSE (FAST)
+        // SYSTEM 2: TRACK STM
         // =====================================================================
+        if (message.toLowerCase().includes('want to talk about') || message.toLowerCase().includes('let\'s discuss')) {
+            const topic = message.split(/want to talk about|let's discuss/i)[1]?.trim()
+            if (topic) {
+                await trackTopic(topic, userId, sessionId, supabaseClient)
+            }
+        }
+
+        // =====================================================================
+        // RETURN RESPONSE
+        // =====================================================================
+        console.log(`\n✅ RESPONSE GENERATED`)
+        console.log(`Reply: ${aiResponse.reply}`)
+        console.log(`========================================\n`)
+
         const response: ChatResponse = {
             mode: classification.intent === 'TRANSACTION' ? 'transaction' : 'conversation',
             reply: aiResponse.reply,
