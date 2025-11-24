@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # Frontend application (development)
+  frontend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: finai-frontend-dev
+    ports:
+      - "5173:5173"
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./index.html:/app/index.html
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./tailwind.config.js:/app/tailwind.config.js
+      - ./postcss.config.js:/app/postcss.config.js
+      # Prevent node_modules from being overwritten
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+    networks:
+      - finai-network
+    restart: unless-stopped
+
+  # Frontend application (production)
+  frontend-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: finai-frontend-prod
+    ports:
+      - "8080:80"
+    environment:
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+    networks:
+      - finai-network
+    restart: unless-stopped
+    profiles:
+      - production
+
+  # Supabase local development (optional - for full local setup)
+  supabase:
+    image: supabase/postgres:15.1.0.117
+    container_name: finai-supabase-db
+    ports:
+      - "54322:5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your-super-secret-password}
+      POSTGRES_DB: postgres
+    volumes:
+      - supabase-db-data:/var/lib/postgresql/data
+      - ./supabase/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./supabase/sasha_schema.sql:/docker-entrypoint-initdb.d/02-sasha_schema.sql
+    networks:
+      - finai-network
+    restart: unless-stopped
+    profiles:
+      - local-full
+
+networks:
+  finai-network:
+    driver: bridge
+
+volumes:
+  supabase-db-data:
+    driver: local
