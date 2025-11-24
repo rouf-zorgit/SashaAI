@@ -280,30 +280,43 @@ Return JSON:
         // =====================================================================
         console.log(`\n💬 GENERATING RESPONSE...`)
 
-        const finalPrompt = `
+        // Build complete system prompt with ALL memory
+        const completeSystemPrompt = `
 ${personalityPrompt}
 
+=== USER MEMORY (USE THIS!) ===
 ${memoryContext}
 
 ${episodicContext}
 
 ${patternWarnings}
 
+CRITICAL RULES:
+1. ALWAYS check USER MEMORY before responding
+2. If user's name is in memory, USE IT - never say "I don't know"
+3. If salary is in memory, reference it - never ask again
+4. Extract ALL transactions from message (can be multiple)
+5. For undo requests, check transaction_undo_stack
+
 USER MESSAGE: "${message}"
 INTENT: ${classification.intent}
 
-Generate a response following your personality. If this is a transaction, extract details and confirm.
+If this message contains transactions:
+- Extract ALL of them (pen 20tk, transport 60tk, income 600tk = 3 transactions)
+- Return array of transactions
 
 Return JSON:
 {
-  "reply": "your response (max 2 sentences)",
-  "transaction": {
-    "amount": number,
-    "category": string,
-    "merchant": string,
-    "type": "expense" | "income",
-    "currency": "BDT"
-  } (only if TRANSACTION intent)
+  "reply": "your response using memory (max 2 sentences)",
+  "transactions": [
+    {
+      "amount": number,
+      "category": string,
+      "merchant": string,
+      "type": "expense" | "income",
+      "currency": "BDT"
+    }
+  ] (array of all transactions found, empty if none)
 }
 `
 
@@ -316,8 +329,7 @@ Return JSON:
             body: JSON.stringify({
                 model: 'gpt-4o-mini',
                 messages: [
-                    { role: 'system', content: personalityPrompt },
-                    ...recentMessages.slice(-3),
+                    { role: 'system', content: completeSystemPrompt },
                     { role: 'user', content: message }
                 ],
                 temperature: 0.7,
@@ -332,57 +344,67 @@ Return JSON:
         aiResponse.reply = enforceSimpleEnglish(aiResponse.reply)
 
         // =====================================================================
-        // SYSTEM 6: TRANSACTION BRAIN
+        // SYSTEM 6: TRANSACTION BRAIN - Handle Multiple Transactions
         // =====================================================================
-        if (classification.intent === 'TRANSACTION' && aiResponse.transaction) {
-            console.log(`\n💰 PROCESSING TRANSACTION...`)
+        if (classification.intent === 'TRANSACTION' && aiResponse.transactions && aiResponse.transactions.length > 0) {
+            console.log(`\n💰 PROCESSING ${aiResponse.transactions.length} TRANSACTION(S)...`)
 
-            const transactionData: TransactionData = {
-                ...aiResponse.transaction,
-                occurred_at: new Date().toISOString(),
-                source: 'chat' as const,
-                confidence: classification.confidence
-            }
+            const savedTransactions = []
+            const failedTransactions = []
 
-            // Validate
-            const validation = await validateTransaction(transactionData, userId, supabaseClient)
+            for (const transaction of aiResponse.transactions) {
+                const transactionData: TransactionData = {
+                    ...transaction,
+                    occurred_at: new Date().toISOString(),
+                    source: 'chat' as const,
+                    confidence: classification.confidence
+                }
 
-            if (!validation.isValid) {
-                console.log(`❌ Validation failed: ${validation.errors.join(', ')}`)
-                return new Response(
-                    JSON.stringify({
-                        mode: 'conversation',
-                        reply: `Validation error: ${validation.errors.join(', ')}`,
-                        intent: 'error',
-                        confidence: 1.0
-                    }),
-                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-                )
-            }
+                // Validate
+                const validation = await validateTransaction(transactionData, userId, supabaseClient)
 
-            if (validation.warnings.length > 0) {
-                console.log(`⚠️ Warnings: ${validation.warnings.join(', ')}`)
-                aiResponse.reply = `${validation.warnings[0]} Confirm?`
-            } else {
+                if (!validation.isValid) {
+                    console.log(`❌ Validation failed for ${transaction.amount} BDT: ${validation.errors.join(', ')}`)
+                    failedTransactions.push(transaction)
+                    continue
+                }
+
+                if (validation.warnings.length > 0) {
+                    console.log(`⚠️ Warnings for ${transaction.amount} BDT: ${validation.warnings.join(', ')}`)
+                    // For now, skip transactions with warnings
+                    continue
+                }
+
                 // Save transaction
                 const saveResult = await saveTransaction(transactionData, userId, supabaseClient)
 
                 if (saveResult.success) {
                     console.log(`✅ Transaction saved: ${saveResult.transactionId}`)
+                    savedTransactions.push(transaction)
 
                     // Log episodic event
                     await logEpisode(
                         userId,
                         'transaction',
-                        `Spent ${transactionData.amount} BDT on ${transactionData.category}`,
+                        `${transaction.type === 'income' ? 'Earned' : 'Spent'} ${transactionData.amount} BDT on ${transactionData.category}`,
                         transactionData,
                         transactionData.amount > 5000 ? 7 : 5,
                         supabaseClient
                     )
                 } else {
-                    console.log(`❌ Save failed: ${saveResult.error}`)
-                    aiResponse.reply = `Failed to save: ${saveResult.error}`
+                    console.log(`❌ Save failed for ${transaction.amount} BDT: ${saveResult.error}`)
+                    failedTransactions.push(transaction)
                 }
+            }
+
+            // Update reply with results
+            if (savedTransactions.length > 0) {
+                const summary = savedTransactions.map(t => `${t.amount} BDT (${t.category})`).join(', ')
+                aiResponse.reply = `Done! Saved ${savedTransactions.length} transaction(s): ${summary}.`
+            }
+
+            if (failedTransactions.length > 0) {
+                aiResponse.reply += ` ${failedTransactions.length} failed.`
             }
         }
 
