@@ -6,6 +6,7 @@ import TransactionItem from '../components/TransactionItem';
 import { supabase } from '../lib/supabase';
 import { CashFlowChart } from '../components/CashFlowChart';
 import { PatternInsights } from '../components/PatternInsights';
+import { WeeklySummary } from '../components/WeeklySummary';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
@@ -32,7 +33,8 @@ const Reports: React.FC = () => {
             .filter(t => t.type === 'expense')
             .forEach(t => {
                 const current = categoryMap.get(t.category) || 0;
-                categoryMap.set(t.category, current + Number(t.amount));
+                // ✅ FIX: Use Math.abs() since expenses are stored as negative
+                categoryMap.set(t.category, current + Math.abs(Number(t.amount)));
             });
 
         return Array.from(categoryMap.entries())
@@ -52,6 +54,9 @@ const Reports: React.FC = () => {
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold text-gray-900">Financial Dashboard</h1>
+
+            {/* Weekly AI Summary */}
+            {userId && <WeeklySummary userId={userId} />}
 
             {/* Intelligence Section */}
             {userId && (
