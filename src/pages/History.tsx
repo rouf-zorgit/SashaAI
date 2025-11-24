@@ -1,15 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { Search, Filter, Download } from 'lucide-react';
-import { getUserTransactions, subscribeToTransactions } from '../lib/db/transactions';
+import { getUserTransactions, subscribeToTransactions, softDeleteTransaction } from '../lib/db/transactions';
 import { useAuthStore } from '../store/authStore';
 import type { Transaction } from '../types/supabase';
 import TransactionItem from '../components/TransactionItem';
+import EditTransactionModal from '../components/EditTransactionModal';
+import DeleteConfirmationDialog from '../components/DeleteConfirmationDialog';
 
 const History: React.FC = () => {
     const { user } = useAuthStore();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Edit modal state
+    const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+    // Delete dialog state
+    const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
 
     useEffect(() => {
         if (!user) return;
@@ -40,6 +49,34 @@ const History: React.FC = () => {
         (t.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
         t.category.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const handleEdit = (transaction: Transaction) => {
+        setEditingTransaction(transaction);
+    };
+
+    const handleDelete = (transaction: Transaction) => {
+        setDeletingTransaction(transaction);
+    };
+
+    const confirmDelete = async () => {
+        if (!deletingTransaction) return;
+
+        setDeleteLoading(true);
+        try {
+            await softDeleteTransaction(deletingTransaction.id);
+            setDeletingTransaction(null);
+            // Transaction list will update automatically via subscription
+        } catch (error) {
+            console.error('Error deleting transaction:', error);
+            alert('Failed to delete transaction. Please try again.');
+        } finally {
+            setDeleteLoading(false);
+        }
+    };
+
+    const handleEditSuccess = () => {
+        // Transaction list will update automatically via subscription
+    };
 
     return (
         <div className="space-y-6">
@@ -78,10 +115,37 @@ const History: React.FC = () => {
                     <div className="text-center py-8 text-gray-500">No transactions found.</div>
                 ) : (
                     filteredTransactions.map((transaction) => (
-                        <TransactionItem key={transaction.id} transaction={transaction} />
+                        <TransactionItem
+                            key={transaction.id}
+                            transaction={transaction}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                        />
                     ))
                 )}
             </div>
+
+            {/* Edit Modal */}
+            {editingTransaction && (
+                <EditTransactionModal
+                    transaction={editingTransaction}
+                    isOpen={true}
+                    onClose={() => setEditingTransaction(null)}
+                    onSuccess={handleEditSuccess}
+                />
+            )}
+
+            {/* Delete Confirmation */}
+            {deletingTransaction && (
+                <DeleteConfirmationDialog
+                    isOpen={true}
+                    onConfirm={confirmDelete}
+                    onCancel={() => setDeletingTransaction(null)}
+                    transactionAmount={deletingTransaction.amount}
+                    transactionCategory={deletingTransaction.category}
+                    loading={deleteLoading}
+                />
+            )}
         </div>
     );
 };
