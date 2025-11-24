@@ -36,14 +36,12 @@ const Budgets: React.FC = () => {
 
         return transactions
             .filter(t =>
-                t.is_confirmed &&
-                !t.deleted_at &&
                 t.type === 'expense' &&
                 t.category === budget.category &&
                 new Date(t.created_at) >= startDate &&
                 new Date(t.created_at) <= endDate
             )
-            .reduce((sum, t) => sum + t.base_amount, 0);
+            .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0); // ✅ FIX: Use Math.abs(amount)
     };
 
     const handleDelete = async (id: string) => {
@@ -114,8 +112,8 @@ const Budgets: React.FC = () => {
                                     <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                                         <div
                                             className={`h-full transition-all ${isOverBudget ? 'bg-red-500' :
-                                                    isNearLimit ? 'bg-yellow-500' :
-                                                        'bg-green-500'
+                                                isNearLimit ? 'bg-yellow-500' :
+                                                    'bg-green-500'
                                                 }`}
                                             style={{ width: `${Math.min(percentage, 100)}%` }}
                                         />

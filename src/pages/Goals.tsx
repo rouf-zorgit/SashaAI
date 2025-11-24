@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { getUserGoals, createGoal, updateGoal, deleteGoal, type SavingsGoal } from '../lib/db/budgets';
 import { Target, Plus, Trash2, TrendingUp } from 'lucide-react';
+import { AddProgressDialog } from '../components/AddProgressDialog';
 
 const Goals: React.FC = () => {
     const { user } = useAuthStore();
     const [goals, setGoals] = useState<SavingsGoal[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddDialog, setShowAddDialog] = useState(false);
+    const [progressGoal, setProgressGoal] = useState<SavingsGoal | null>(null);
 
     useEffect(() => {
         if (user) {
@@ -150,10 +152,7 @@ const Goals: React.FC = () => {
                                     </div>
                                 ) : (
                                     <button
-                                        onClick={() => {
-                                            const amount = prompt('Add amount to goal:');
-                                            if (amount) handleAddProgress(goal, parseFloat(amount));
-                                        }}
+                                        onClick={() => setProgressGoal(goal)}
                                         className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
                                     >
                                         <TrendingUp size={18} />
@@ -173,6 +172,21 @@ const Goals: React.FC = () => {
                         const newGoal = await createGoal({ ...goal, user_id: user.id });
                         setGoals(prev => [newGoal, ...prev]);
                         setShowAddDialog(false);
+                    }}
+                />
+            )}
+
+            {progressGoal && (
+                <AddProgressDialog
+                    goalName={progressGoal.name}
+                    currentAmount={progressGoal.current_amount}
+                    targetAmount={progressGoal.target_amount}
+                    currency={progressGoal.currency}
+                    isOpen={true}
+                    onClose={() => setProgressGoal(null)}
+                    onAdd={(amount) => {
+                        handleAddProgress(progressGoal, amount);
+                        setProgressGoal(null);
                     }}
                 />
             )}
