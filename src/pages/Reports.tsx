@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { CashFlowChart } from '../components/CashFlowChart';
 import { PatternInsights } from '../components/PatternInsights';
 import { WeeklySummary } from '../components/WeeklySummary';
+import { Paywall } from '../components/Paywall';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
@@ -55,14 +56,20 @@ const Reports: React.FC = () => {
         <div className="space-y-6">
             <h1 className="text-2xl font-bold text-gray-900">Financial Dashboard</h1>
 
-            {/* Weekly AI Summary */}
-            {userId && <WeeklySummary userId={userId} />}
+            {/* Weekly AI Summary - Premium Feature */}
+            {userId && (
+                <Paywall feature="weeklySummary">
+                    <WeeklySummary userId={userId} />
+                </Paywall>
+            )}
 
             {/* Intelligence Section */}
             {userId && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <CashFlowChart userId={userId} />
-                    <PatternInsights userId={userId} />
+                    <Paywall feature="patternInsights">
+                        <PatternInsights userId={userId} />
+                    </Paywall>
                 </div>
             )}
 
