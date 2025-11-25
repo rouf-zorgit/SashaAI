@@ -1,5 +1,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { logger } from '../_shared/logger.ts'
+import { logUsage } from '../_shared/analytics.ts'
+import { initSentry, captureException } from '../_shared/sentry.ts'
+
+initSentry()
 
 // Import Fast Mode Systems
 import { checkForSpam } from './spam-controller.ts'
@@ -23,9 +28,14 @@ serve(async (req) => {
         return new Response('ok', { headers: corsHeaders })
     }
 
+    const startTime = performance.now()
+    let userIdForLog = 'unknown'
+
     try {
+        logger.time('processChat')
         const body = await req.json()
         const { userId, sessionId = crypto.randomUUID(), message, recentMessages = [] } = body as ChatRequest
+        userIdForLog = userId || 'unknown'
 
         if (!userId || !message) {
             return new Response(
@@ -40,9 +50,7 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        console.log(`\n========== FAST MODE PROCESSING ==========`)
-        console.log(`User: ${userId}`)
-        console.log(`Session: ${sessionId}`)
+        logger.info(`Fast Mode Processing`, { userId, sessionId })
 
         // =====================================================================
         // SYSTEM 7: SPAM/REPETITION CONTROLLER (FAST)
@@ -337,13 +345,40 @@ Return JSON:
             transaction: aiResponse.transaction
         }
 
+        logger.timeEnd('processChat')
+        const executionTime = performance.now() - startTime
+
+        // Log Usage
+        await logUsage({
+            function_name: 'processChat',
+            user_id: userIdForLog,
+            tokens_used: (aiData?.usage?.total_tokens || 0) + (classificationData?.usage?.total_tokens || 0),
+            execution_time_ms: Math.round(executionTime),
+            status: 'success'
+        }, supabaseClient)
+
         return new Response(
             JSON.stringify(response),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
 
     } catch (error) {
-        console.error('❌ ERROR:', error)
+        logger.error('Error in processChat', error)
+        captureException(error, { userId: userIdForLog })
+
+        // Log Error Usage
+        const supabaseClient = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        )
+        await logUsage({
+            function_name: 'processChat',
+            user_id: userIdForLog,
+            execution_time_ms: Math.round(performance.now() - startTime),
+            status: 'error',
+            error_message: error.message
+        }, supabaseClient)
+
         return new Response(
             JSON.stringify({
                 mode: 'conversation',

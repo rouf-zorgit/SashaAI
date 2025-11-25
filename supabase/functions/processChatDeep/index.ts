@@ -1,5 +1,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { logger } from '../_shared/logger.ts'
+import { logUsage } from '../_shared/analytics.ts'
+import { initSentry, captureException } from '../_shared/sentry.ts'
+
+initSentry()
 
 // Import Deep Learning Systems
 import { extractSalaryInfo, extractFixedCosts, extractSalaryDay, extractName } from './ltm.ts'
@@ -18,7 +23,11 @@ serve(async (req) => {
         return new Response('ok', { headers: corsHeaders })
     }
 
+    const startTime = performance.now()
+    let userIdForLog = 'unknown'
+
     try {
+        logger.time('processChatDeep')
         const body = await req.json()
 
         // Handle Supabase Database Webhook payload
@@ -42,10 +51,9 @@ serve(async (req) => {
         const aiMessage = record
         const userId = aiMessage.user_id
         const sessionId = aiMessage.session_id
+        userIdForLog = userId || 'unknown'
 
-        console.log(`\n========== DEEP LEARNING MODE ==========`)
-        console.log(`User: ${userId}`)
-        console.log(`Session: ${sessionId}`)
+        logger.info(`Deep Learning Mode`, { userId, sessionId })
 
         // 1. Fetch the preceding User Message
         const { data: userMessages } = await supabaseClient
@@ -130,13 +138,39 @@ serve(async (req) => {
         await runPatternAnalysis(userId, supabaseClient)
         console.log(`✅ Pattern analysis complete`)
 
+        logger.timeEnd('processChatDeep')
+        const executionTime = performance.now() - startTime
+
+        // Log Usage
+        await logUsage({
+            function_name: 'processChatDeep',
+            user_id: userIdForLog,
+            execution_time_ms: Math.round(executionTime),
+            status: 'success'
+        }, supabaseClient)
+
         return new Response(
             JSON.stringify({ success: true, mode: 'deep_learning' }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
 
     } catch (error) {
-        console.error('❌ DEEP LEARNING ERROR:', error)
+        logger.error('Deep Learning Error', error)
+        captureException(error, { userId: userIdForLog })
+
+        // Log Error Usage
+        const supabaseClient = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        )
+        await logUsage({
+            function_name: 'processChatDeep',
+            user_id: userIdForLog,
+            execution_time_ms: Math.round(performance.now() - startTime),
+            status: 'error',
+            error_message: error.message
+        }, supabaseClient)
+
         return new Response(
             JSON.stringify({ error: error.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

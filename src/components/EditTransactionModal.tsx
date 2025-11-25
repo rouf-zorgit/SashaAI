@@ -35,10 +35,13 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 return;
             }
 
+            const categoryChanged = category.trim() !== transaction.category;
+
             await updateTransaction(transaction.id, {
                 amount: transaction.type === 'income' ? numAmount : -numAmount,
                 category: category.trim(),
-                description: description.trim() || null
+                description: description.trim() || null,
+                ...(categoryChanged && { category_override: category.trim() } as any)
             });
 
             onSuccess();
@@ -84,13 +87,29 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Category
                         </label>
-                        <input
-                            type="text"
+                        <select
                             value={category}
                             onChange={(e) => setCategory(e.target.value)}
                             className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                             required
-                        />
+                        >
+                            <option value="Food">Food</option>
+                            <option value="Transport">Transport</option>
+                            <option value="Shopping">Shopping</option>
+                            <option value="Bills">Bills</option>
+                            <option value="Entertainment">Entertainment</option>
+                            <option value="Health">Health</option>
+                            <option value="Education">Education</option>
+                            <option value="Groceries">Groceries</option>
+                            <option value="Rent">Rent</option>
+                            <option value="Utilities">Utilities</option>
+                            <option value="Salary">Salary</option>
+                            <option value="Investment">Investment</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Changing category will override AI suggestions
+                        </p>
                     </div>
 
                     <div>

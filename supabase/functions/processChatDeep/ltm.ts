@@ -27,13 +27,29 @@ export async function extractSalaryInfo(
             const amount = parseFloat(match[1].replace(/,/g, ''))
 
             if (amount >= 5000 && amount <= 1000000) { // Reasonable salary range
-                await supabaseClient
+                // Check if salary already exists
+                const { data: profile } = await supabaseClient
                     .from('profiles')
-                    .update({ income_monthly: amount })
+                    .select('income_monthly')
                     .eq('id', userId)
+                    .single()
 
-                console.log(`✅ Saved salary: ${amount} BDT`)
-                return true
+                // Only update if not set or significantly different (>10% change)
+                const shouldUpdate = !profile?.income_monthly ||
+                    Math.abs(profile.income_monthly - amount) / profile.income_monthly > 0.1
+
+                if (shouldUpdate) {
+                    await supabaseClient
+                        .from('profiles')
+                        .update({ income_monthly: amount })
+                        .eq('id', userId)
+
+                    console.log(`✅ Saved salary: ${amount} BDT`)
+                    return true
+                } else {
+                    console.log(`ℹ️ Salary already set to ${profile.income_monthly}, skipping`)
+                    return false
+                }
             }
         }
     }
@@ -108,15 +124,29 @@ export async function extractName(
         if (match) {
             const name = match[1].trim()
 
-            // Validate name (at least 2 characters, not a number)
-            if (name.length >= 2 && !/^\d+$/.test(name)) {
-                await supabaseClient
+            // Validate name (at least 2 characters, not a number, not common words)
+            const invalidNames = ['user', 'test', 'admin', 'guest', 'hello', 'hi']
+            if (name.length >= 2 && !/^\d+$/.test(name) && !invalidNames.includes(name.toLowerCase())) {
+                // Check if name already exists
+                const { data: profile } = await supabaseClient
                     .from('profiles')
-                    .update({ name: name })
+                    .select('name')
                     .eq('id', userId)
+                    .single()
 
-                console.log(`✅ Saved name: ${name}`)
-                return true
+                // Only update if not set
+                if (!profile?.name || profile.name.trim().length === 0) {
+                    await supabaseClient
+                        .from('profiles')
+                        .update({ name: name })
+                        .eq('id', userId)
+
+                    console.log(`✅ Saved name: ${name}`)
+                    return true
+                } else {
+                    console.log(`ℹ️ Name already set to ${profile.name}, skipping`)
+                    return false
+                }
             }
         }
     }

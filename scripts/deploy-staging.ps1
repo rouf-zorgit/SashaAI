@@ -23,7 +23,7 @@ catch {
 
 # 3. Build for staging
 Write-Host "Building for staging..." -ForegroundColor Yellow
-Copy-Item .env.staging .env -Force
+# Note: .env already configured, skip copy to avoid encoding issues
 npm run build
 
 # 4. Deploy to Vercel
@@ -34,8 +34,12 @@ npx vercel --prod
 $deployFunctions = Read-Host "Deploy Supabase functions to staging? (y/n)"
 if ($deployFunctions -eq 'y') {
     Write-Host "Deploying Edge Functions..." -ForegroundColor Yellow
-    $stagingRef = "eocxtwjcwpgipfeayvhy" 
-    npx supabase functions deploy --project-ref $stagingRef
+    $stagingRef = "xcwlvoqccyxnldyznxln"
+    npx supabase functions deploy processChat --project-ref $stagingRef
+    npx supabase functions deploy processChatDeep --project-ref $stagingRef
+    npx supabase functions deploy processReceipt --project-ref $stagingRef
+    npx supabase functions deploy analyzePatterns --project-ref $stagingRef
+    npx supabase functions deploy generateWeeklySummary --project-ref $stagingRef
 }
 
 Write-Host "Staging deployment complete!" -ForegroundColor Green
