@@ -36,9 +36,9 @@ serve(async (req) => {
             )
         }
 
-        const openaiKey = Deno.env.get('OPENAI_API_KEY')
-        if (!openaiKey) {
-            throw new Error('OPENAI_API_KEY not configured')
+        const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
+        if (!anthropicKey) {
+            throw new Error('ANTHROPIC_API_KEY not configured')
         }
 
         const supabase = createClient(
@@ -130,32 +130,35 @@ If no transactions detected, return empty transactions array.
         // =====================================================================
         // STEP 3: SINGLE AI CALL (Optimized)
         // =====================================================================
+        // Claude API expects system prompt separately from messages
         const messages = [
-            { role: 'system', content: systemPrompt },
             ...conversationHistory,
             { role: 'user', content: message }
         ]
 
-        const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${openaiKey}`,
-                'Content-Type': 'application/json',
+                'x-api-key': anthropicKey,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json',
             },
             body: JSON.stringify({
-                model: 'gpt-4o-mini',
+                model: 'claude-3-5-sonnet-20241022',
+                max_tokens: 1024,
+                system: systemPrompt + '\n\nIMPORTANT: You must respond with valid JSON only, no other text.',
                 messages,
-                temperature: 0.7,
-                response_format: { type: "json_object" }
+                temperature: 0.7
             })
         })
 
         if (!aiResponse.ok) {
-            throw new Error(`OpenAI API error: ${aiResponse.statusText}`)
+            const errorText = await aiResponse.text()
+            throw new Error(`Claude API error: ${aiResponse.statusText} - ${errorText}`)
         }
 
         const aiData = await aiResponse.json()
-        const parsed = JSON.parse(aiData.choices[0].message.content)
+        const parsed = JSON.parse(aiData.content[0].text)
 
         // =====================================================================
         // STEP 4: SAVE USER MESSAGE TO DB

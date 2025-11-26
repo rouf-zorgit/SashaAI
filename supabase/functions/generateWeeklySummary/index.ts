@@ -21,7 +21,7 @@ serve(async (req) => {
             )
         }
 
-        const openaiKey = Deno.env.get('OPENAI_API_KEY')
+        const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
         const supabaseClient = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -81,25 +81,26 @@ Requirements:
 
 Return ONLY the summary text, nothing else.`
 
-        const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${openaiKey}`,
-                'Content-Type': 'application/json',
+                'x-api-key': anthropicKey,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json',
             },
             body: JSON.stringify({
-                model: 'gpt-4o-mini',
+                model: 'claude-3-5-sonnet-20241022',
+                max_tokens: 300,
+                system: 'You are a helpful financial advisor.',
                 messages: [
-                    { role: 'system', content: 'You are a helpful financial advisor.' },
                     { role: 'user', content: prompt }
                 ],
-                temperature: 0.7,
-                max_tokens: 150
+                temperature: 0.7
             })
         })
 
         const aiData = await aiResponse.json()
-        const summary = aiData.choices[0].message.content.trim()
+        const summary = aiData.content[0].text.trim()
 
         return new Response(
             JSON.stringify({
