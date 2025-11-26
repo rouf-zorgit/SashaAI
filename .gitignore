@@ -121,3 +121,20 @@ dist
 supabase/.temp
 
 .vercel
+
+# Backup files
+*.backup
+*.old
+*-old.*
+*_backup.*
+*-backup.*
+
+# Debug logs
+debug_log.txt
+
+# Environment backups
+env_backup*.txt
+
+# OS files
+.DS_Store
+Thumbs.db
