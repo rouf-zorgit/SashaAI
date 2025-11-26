@@ -8,6 +8,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 // Pages
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
 import Chat from './pages/Chat';
 import History from './pages/History';
 import Reports from './pages/Reports';
@@ -32,6 +33,7 @@ function App() {
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
           <Route path="/signup" element={user ? <Navigate to="/" replace /> : <Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
           <Route path="/" element={
             <ProtectedRoute>

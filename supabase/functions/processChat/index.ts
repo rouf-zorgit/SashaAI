@@ -1,26 +1,22 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { logger } from '../_shared/logger.ts'
-import { logUsage } from '../_shared/analytics.ts'
-import { initSentry, captureException } from '../_shared/sentry.ts'
-
-initSentry()
-
-// Import Fast Mode Systems
-import { checkForSpam } from './spam-controller.ts'
-import { extractFromMessage } from './memory-extractor.ts'
-import { buildCompleteContext } from './memory-injector.ts'
-import { generatePersonalityPrompt, enforceSimpleEnglish } from './personality.ts'
-import { getSTMContext } from './stm.ts'
-import { generateEpisodicContext } from './episodic.ts'
-import { getPatternWarnings } from './patterns.ts'
-import { validateTransaction, saveTransaction, undoLastTransaction, type TransactionData } from './transaction-brain.ts'
-import { detectEmotion } from './utils.ts'
-import type { ChatRequest, ChatResponse } from './types.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+interface ChatRequest {
+    userId: string
+    sessionId: string
+    message: string
+    profile: {
+        full_name?: string
+        monthly_salary?: number
+        currency?: string
+        primary_goal?: string
+        communication_style?: string
+    }
 }
 
 serve(async (req) => {
@@ -29,232 +25,118 @@ serve(async (req) => {
     }
 
     const startTime = performance.now()
-    let userIdForLog = 'unknown'
 
     try {
-        logger.time('processChat')
-        const body = await req.json()
-        const { userId, sessionId = crypto.randomUUID(), message, recentMessages = [] } = body as ChatRequest
-        userIdForLog = userId || 'unknown'
+        const { userId, sessionId, message, profile } = await req.json() as ChatRequest
 
-        if (!userId || !message) {
+        if (!userId || !message || !sessionId) {
             return new Response(
-                JSON.stringify({ error: 'Missing required fields' }),
+                JSON.stringify({ error: 'Missing required fields: userId, sessionId, message' }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
         }
 
         const openaiKey = Deno.env.get('OPENAI_API_KEY')
-        const supabaseClient = createClient(
+        if (!openaiKey) {
+            throw new Error('OPENAI_API_KEY not configured')
+        }
+
+        const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        logger.info(`Fast Mode Processing`, { userId, sessionId })
+        // =====================================================================
+        // STEP 1: FETCH SESSION CONTEXT (Single Query)
+        // =====================================================================
+        const { data: sessionMessages } = await supabase
+            .from('messages')
+            .select('role, content')
+            .eq('session_id', sessionId)
+            .order('created_at', { ascending: false })
+            .limit(10)
+
+        // Build conversation history (reverse to chronological order)
+        const conversationHistory = (sessionMessages || [])
+            .reverse()
+            .map(m => ({
+                role: m.role === 'user' ? 'user' : 'assistant',
+                content: m.content
+            }))
+
+        // Fetch today's transactions for context
+        const todayStart = new Date().toISOString().split('T')[0]
+        const { data: todaysTransactions } = await supabase
+            .from('transactions')
+            .select('amount, category, merchant_name, created_at')
+            .eq('user_id', userId)
+            .gte('created_at', todayStart)
+            .order('created_at', { ascending: false })
+            .limit(10)
+
+        const todaySpending = (todaysTransactions || [])
+            .map(t => `${t.amount} ${profile?.currency || 'BDT'} at ${t.merchant_name || t.category}`)
+            .join(', ')
 
         // =====================================================================
-        // SYSTEM 7: SPAM/REPETITION CONTROLLER (FAST)
+        // STEP 2: BUILD SYSTEM PROMPT WITH PROFILE DATA
         // =====================================================================
-        const spamCheck = await checkForSpam(message, userId, sessionId, recentMessages, supabaseClient)
+        const userName = profile?.full_name || 'there'
+        const salary = profile?.monthly_salary ? `${profile.monthly_salary} ${profile.currency || 'BDT'}` : 'not set'
+        const goal = profile?.primary_goal || 'general financial wellness'
+        const style = profile?.communication_style || 'friendly'
 
-        if (spamCheck.isSpam && spamCheck.shouldStop) {
-            return new Response(
-                JSON.stringify({
-                    mode: 'conversation',
-                    reply: spamCheck.response || '...',
-                    intent: 'spam',
-                    confidence: 1.0
-                }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
-        }
+        const systemPrompt = `You are Sasha, a ${style} financial assistant.
 
-        // =====================================================================
-        // EMOTION DETECTION (FAST - READ ONLY)
-        // =====================================================================
-        const { emotion: detectedEmotion, intensity: emotionIntensity } = detectEmotion(message)
-        // Note: We DO NOT save emotion here. That happens in Deep Mode.
+USER PROFILE:
+- Name: ${userName}
+- Monthly Income: ${salary}
+- Primary Goal: ${goal}
 
-        // =====================================================================
-        // SYSTEM 8: MEMORY EXTRACTION (FAST - ENTITIES ONLY)
-        // =====================================================================
-        const extractedEntities = await extractFromMessage(message, userId, openaiKey, supabaseClient)
+${todaySpending ? `TODAY'S SPENDING:\n${todaySpending}` : ''}
 
-        // Note: Deep LTM extraction (salary, costs) moved to Deep Mode.
+PERSONALITY:
+${style === 'friendly' ? '- Be warm, encouraging, and conversational' : ''}
+${style === 'formal' ? '- Be professional, concise, and direct' : ''}
+${style === 'simple' ? '- Use very simple language, like explaining to a grandmother' : ''}
 
-        // =====================================================================
-        // RETRIEVE MEMORY DATA (FAST - READ ONLY)
-        // =====================================================================
-        const [
-            { data: profile },
-            { data: preferences },
-            { data: spendingPatterns },
-            { data: memoryEvents },
-            sessionContext,
-            { data: recentEpisodes },
-            { data: detectedPatterns },
-            { data: recurringBills }
-        ] = await Promise.all([
-            supabaseClient.from('profiles').select('*').eq('id', userId).single(),
-            supabaseClient.from('user_preferences').select('*').eq('user_id', userId).single(),
-            supabaseClient.from('user_spending_patterns').select('*').eq('user_id', userId).single(),
-            supabaseClient.from('memory_events').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5),
-            getSTMContext(userId, sessionId, supabaseClient),
-            supabaseClient.from('episodic_events').select('*').eq('user_id', userId).order('occurred_at', { ascending: false }).limit(5),
-            supabaseClient.from('spending_patterns').select('*').eq('user_id', userId),
-            supabaseClient.from('recurring_payments').select('*').eq('user_id', userId).eq('is_active', true)
-        ])
+CORE INSTRUCTIONS:
+1. Extract ALL transactions from user message (can be multiple)
+2. For each transaction, determine: amount, category, merchant, type (income/expense)
+3. Keep responses under 2 sentences
+4. Use the user's name when appropriate
+5. Reference their salary/goal when relevant
 
-        // =====================================================================
-        // SYSTEM 8: MEMORY INJECTION
-        // =====================================================================
-        const memoryContext = buildCompleteContext({
-            profile,
-            preferences,
-            spendingPatterns,
-            memoryEvents: memoryEvents || [],
-            sessionContext,
-            recentEpisodes: recentEpisodes || [],
-            detectedPatterns: detectedPatterns || [],
-            recurringBills: recurringBills || []
-        })
-
-        // Add episodic context (Read only)
-        const episodicContext = await generateEpisodicContext(userId, supabaseClient)
-
-        // Add pattern warnings (Read only)
-        const patternWarnings = await getPatternWarnings(userId, supabaseClient)
-
-        // =====================================================================
-        // SYSTEM 4: PERSONALITY SYSTEM
-        // =====================================================================
-        const personalityPrompt = generatePersonalityPrompt(detectedEmotion, emotionIntensity, preferences)
-
-        // =====================================================================
-        // AI CLASSIFICATION
-        // =====================================================================
-        const classificationPrompt = `
-${memoryContext}
-
-${episodicContext}
-
-${patternWarnings}
-
-USER MESSAGE: "${message}"
-
-Classify this message and extract entities.
-
-Return JSON:
+RESPONSE FORMAT (JSON):
 {
-  "intent": "TRANSACTION" | "UNDO" | "SMALL_TALK" | "QUERY" | "GOAL",
+  "reply": "your response (max 2 sentences)",
+  "intent": "transaction" | "conversation" | "undo" | "query",
   "confidence": 0.0-1.0,
-  "entities": {
-    "amount": number (if transaction),
-    "category": string (if transaction),
-    "merchant": string (if transaction),
-    "type": "expense" | "income" (if transaction)
-  }
-}
-`
-
-        const classificationResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${openaiKey}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: 'gpt-4o-mini',
-                messages: [
-                    { role: 'system', content: 'You are a precise intent classifier. Return only valid JSON.' },
-                    { role: 'user', content: classificationPrompt }
-                ],
-                temperature: 0.1,
-                response_format: { type: "json_object" }
-            })
-        })
-
-        const classificationData = await classificationResponse.json()
-        const classification = JSON.parse(classificationData.choices[0].message.content)
-
-        // =====================================================================
-        // HANDLE SPECIAL INTENTS
-        // =====================================================================
-
-        // SYSTEM 6: UNDO TRANSACTION (FAST)
-        if (classification.intent === 'UNDO' || message.toLowerCase().includes('undo')) {
-            const undoResult = await undoLastTransaction(userId, supabaseClient)
-
-            if (undoResult.needsClarification && undoResult.recentTransactions) {
-                const txList = undoResult.recentTransactions
-                    .map((t, i) => `${i + 1}. ${t.amount} BDT at ${t.merchant || t.category} (${new Date(t.created_at).toLocaleTimeString()})`)
-                    .join('\n')
-
-                return new Response(
-                    JSON.stringify({
-                        mode: 'conversation',
-                        reply: `${undoResult.message}\n\n${txList}\n\nTell me the number or describe which one.`,
-                        intent: 'clarification',
-                        confidence: 1.0
-                    }),
-                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-                )
-            }
-
-            return new Response(
-                JSON.stringify({
-                    mode: 'conversation',
-                    reply: undoResult.message,
-                    intent: 'undo',
-                    confidence: 1.0
-                }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
-        }
-
-        // =====================================================================
-        // GENERATE AI RESPONSE
-        // =====================================================================
-        const completeSystemPrompt = `
-${personalityPrompt}
-
-=== USER MEMORY (USE THIS!) ===
-${memoryContext}
-
-${episodicContext}
-
-${patternWarnings}
-
-CRITICAL RULES:
-1. ALWAYS check USER MEMORY before responding
-2. If user's name is in memory, USE IT - never say "I don't know"
-3. If salary is in memory, reference it - never ask again
-4. Extract ALL transactions from message (can be multiple)
-5. For undo requests, check transaction_undo_stack
-
-USER MESSAGE: "${message}"
-INTENT: ${classification.intent}
-
-If this message contains transactions:
-- Extract ALL of them
-- Return array of transactions
-
-Return JSON:
-{
-  "reply": "your response using memory (max 2 sentences)",
   "transactions": [
     {
       "amount": number,
       "category": string,
       "merchant": string,
       "type": "expense" | "income",
-      "currency": "BDT"
+      "currency": "BDT",
+      "description": string
     }
   ]
 }
+
+If no transactions detected, return empty transactions array.
 `
 
-        const responseData = await fetch('https://api.openai.com/v1/chat/completions', {
+        // =====================================================================
+        // STEP 3: SINGLE AI CALL (Optimized)
+        // =====================================================================
+        const messages = [
+            { role: 'system', content: systemPrompt },
+            ...conversationHistory,
+            { role: 'user', content: message }
+        ]
+
+        const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${openaiKey}`,
@@ -262,122 +144,102 @@ Return JSON:
             },
             body: JSON.stringify({
                 model: 'gpt-4o-mini',
-                messages: [
-                    { role: 'system', content: completeSystemPrompt },
-                    { role: 'user', content: message }
-                ],
+                messages,
                 temperature: 0.7,
                 response_format: { type: "json_object" }
             })
         })
 
-        const aiData = await responseData.json()
-        const aiResponse = JSON.parse(aiData.choices[0].message.content)
+        if (!aiResponse.ok) {
+            throw new Error(`OpenAI API error: ${aiResponse.statusText}`)
+        }
 
-        // Enforce simple English
-        aiResponse.reply = enforceSimpleEnglish(aiResponse.reply)
+        const aiData = await aiResponse.json()
+        const parsed = JSON.parse(aiData.choices[0].message.content)
 
         // =====================================================================
-        // SYSTEM 6: TRANSACTION BRAIN (FAST - SAVE ONLY)
+        // STEP 4: SAVE USER MESSAGE TO DB
         // =====================================================================
-        try {
-            if (classification.intent === 'TRANSACTION' && aiResponse.transactions && Array.isArray(aiResponse.transactions) && aiResponse.transactions.length > 0) {
-                const savedTransactions = []
-                const failedTransactions = []
+        await supabase.from('messages').insert({
+            user_id: userId,
+            session_id: sessionId,
+            role: 'user',
+            content: message,
+            intent: parsed.intent,
+            confidence: parsed.confidence
+        })
 
-                for (const transaction of aiResponse.transactions) {
-                    try {
-                        const transactionData: TransactionData = {
-                            ...transaction,
-                            occurred_at: new Date().toISOString(),
-                            source: 'chat' as const,
-                            confidence: classification.confidence
-                        }
+        // =====================================================================
+        // STEP 5: SAVE TRANSACTIONS (If Any)
+        // =====================================================================
+        const savedTransactionIds: string[] = []
 
-                        const validation = await validateTransaction(transactionData, userId, supabaseClient)
+        if (parsed.transactions && Array.isArray(parsed.transactions) && parsed.transactions.length > 0) {
+            for (const tx of parsed.transactions) {
+                const { data: savedTx } = await supabase
+                    .from('transactions')
+                    .insert({
+                        user_id: userId,
+                        amount: tx.amount,
+                        currency: tx.currency || 'BDT',
+                        base_amount: tx.amount, // TODO: Convert to base currency
+                        type: tx.type,
+                        category: tx.category,
+                        merchant_name: tx.merchant,
+                        description: tx.description,
+                        is_confirmed: true,
+                        confidence: parsed.confidence
+                    })
+                    .select('id')
+                    .single()
 
-                        if (!validation.isValid) {
-                            failedTransactions.push(transaction)
-                            continue
-                        }
-
-                        if (validation.warnings.length > 0) {
-                            // For now, skip transactions with warnings
-                            continue
-                        }
-
-                        const saveResult = await saveTransaction(transactionData, userId, supabaseClient)
-
-                        if (saveResult.success) {
-                            savedTransactions.push(transaction)
-                            // Note: Episodic logging moved to Deep Mode
-                        } else {
-                            failedTransactions.push(transaction)
-                        }
-                    } catch (txError) {
-                        failedTransactions.push(transaction)
-                    }
+                if (savedTx) {
+                    savedTransactionIds.push(savedTx.id)
                 }
-
-                if (savedTransactions.length > 0) {
-                    const summary = savedTransactions.map(t => `${t.amount} BDT (${t.category})`).join(', ')
-                    aiResponse.reply = `Done! Saved ${savedTransactions.length} transaction(s): ${summary}.`
-                }
-
-                if (failedTransactions.length > 0) {
-                    aiResponse.reply += ` ${failedTransactions.length} failed.`
-                }
-            } else if (classification.intent === 'TRANSACTION') {
-                aiResponse.reply = aiResponse.reply || "I understood you want to log a transaction, but I couldn't extract the details. Can you try again?"
             }
-        } catch (error) {
-            aiResponse.reply = "I had trouble processing that transaction. Can you try again?"
+
+            // Update reply with transaction count
+            if (savedTransactionIds.length > 0) {
+                const summary = parsed.transactions.map((t: any) => `${t.amount} BDT (${t.category})`).join(', ')
+                parsed.reply = `Done! Saved ${savedTransactionIds.length} transaction(s): ${summary}.`
+            }
         }
 
         // =====================================================================
-        // RETURN RESPONSE (FAST)
+        // STEP 6: SAVE AI RESPONSE TO DB
         // =====================================================================
-        const response: ChatResponse = {
-            mode: classification.intent === 'TRANSACTION' ? 'transaction' : 'conversation',
-            reply: aiResponse.reply,
-            intent: classification.intent.toLowerCase() as any,
-            confidence: classification.confidence,
-            transaction: aiResponse.transaction
-        }
+        await supabase.from('messages').insert({
+            user_id: userId,
+            session_id: sessionId,
+            role: 'assistant',
+            content: parsed.reply,
+            intent: parsed.intent,
+            confidence: parsed.confidence,
+            metadata: {
+                transaction_ids: savedTransactionIds
+            }
+        })
 
-        logger.timeEnd('processChat')
+        // =====================================================================
+        // STEP 7: RETURN RESPONSE
+        // =====================================================================
         const executionTime = performance.now() - startTime
-
-        // Log Usage
-        await logUsage({
-            function_name: 'processChat',
-            user_id: userIdForLog,
-            tokens_used: (aiData?.usage?.total_tokens || 0) + (classificationData?.usage?.total_tokens || 0),
-            execution_time_ms: Math.round(executionTime),
-            status: 'success'
-        }, supabaseClient)
+        console.log(`✅ processChat completed in ${Math.round(executionTime)}ms`)
 
         return new Response(
-            JSON.stringify(response),
+            JSON.stringify({
+                mode: parsed.intent === 'transaction' ? 'transaction' : 'conversation',
+                reply: parsed.reply,
+                intent: parsed.intent,
+                confidence: parsed.confidence,
+                transactions: parsed.transactions || [],
+                executionTime: Math.round(executionTime)
+            }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
 
     } catch (error) {
-        logger.error('Error in processChat', error)
-        captureException(error, { userId: userIdForLog })
-
-        // Log Error Usage
-        const supabaseClient = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
-        await logUsage({
-            function_name: 'processChat',
-            user_id: userIdForLog,
-            execution_time_ms: Math.round(performance.now() - startTime),
-            status: 'error',
-            error_message: error.message
-        }, supabaseClient)
+        console.error('❌ processChat error:', error)
 
         return new Response(
             JSON.stringify({

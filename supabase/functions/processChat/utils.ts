@@ -24,9 +24,17 @@ export function logError(message: string, error: Error | unknown): void {
 }
 
 /**
- * Detect emotion from message text
+ * Detect emotion from message text with negation handling
  */
 export function detectEmotion(message: string): EmotionDetection {
+    // Check for negations first
+    const negationPattern = /\b(not|no|never|don't|didn't|won't|can't|isn't|aren't)\s+\w+\s+(frustrated|annoyed|angry|mad|upset|hate|terrible|awful|stressed|overwhelmed|worried|anxious|nervous|panic|pressure|happy|great|awesome|excellent|love|amazing|good|excited|fantastic|wonderful|thrilled|pumped|concerned|afraid|scared|fear)\b/i
+
+    if (negationPattern.test(message)) {
+        // If negation detected, return neutral (e.g., "I am not happy" should not trigger "happy")
+        return { emotion: 'neutral', intensity: 0.5 }
+    }
+
     const emotionIndicators = {
         frustrated: /\b(frustrated|annoyed|angry|mad|upset|hate|terrible|awful)\b/i,
         stressed: /\b(stressed|overwhelmed|worried|anxious|nervous|panic|pressure)\b/i,

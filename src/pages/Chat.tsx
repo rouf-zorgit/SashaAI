@@ -5,16 +5,13 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recha
 import { useAuthStore } from '../store/authStore';
 import { useTransactions } from '../contexts/TransactionContext';
 import { processChat, processReceipt } from '../lib/ai';
-import { createMessage, getMessages } from '../lib/db/messages';
+import { getMessagesBySession, createMessage } from '../lib/db/messages';
 import { generateSessionId } from '../lib/db/sasha';
-import { createTransaction, getLastTransaction, updateTransaction, softDeleteTransaction, getRecentTransactions } from '../lib/db/transactions';
+import { createTransaction } from '../lib/db/transactions';
 import { createReceipt } from '../lib/db/receipts';
 import ReceiptReviewModal from '../components/ReceiptReviewModal';
 
-interface AIChatMessage {
-    role: 'user' | 'assistant';
-    content: string;
-}
+
 
 // Helper functions
 const convertImageToBase64 = (file: File): Promise<string> => {
@@ -53,14 +50,6 @@ interface Message {
     };
 }
 
-interface PendingTransaction {
-    id: string;
-    amount: number;
-    category: string;
-    description: string;
-    question: string;
-}
-
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'];
 
 const MemoizedMessage = React.memo(({ message }: { message: Message }) => {
@@ -89,7 +78,7 @@ const MemoizedMessage = React.memo(({ message }: { message: Message }) => {
                         </div>
                     </div>
                     <p className="text-xs text-gray-400 mt-1.5 text-right">
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                     </p>
                 </div>
             </div>
@@ -138,7 +127,7 @@ const MemoizedMessage = React.memo(({ message }: { message: Message }) => {
                     </div>
                 </div>
                 <p className="text-xs text-gray-400 mt-1.5">
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                 </p>
             </div>
         </div>
@@ -260,13 +249,12 @@ const ChatInput = React.memo(({
 });
 
 const Chat: React.FC = () => {
-    const { user } = useAuthStore();
+    const { user, profile } = useAuthStore();
     const { refresh: refreshTransactions } = useTransactions();
     const [messages, setMessages] = useState<Message[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const [pendingTransactions, setPendingTransactions] = useState<PendingTransaction[]>([]);
     const [sessionId, setSessionId] = useState<string>('');
 
     // Receipt Review Modal State
@@ -286,10 +274,10 @@ const Chat: React.FC = () => {
     };
 
     useEffect(() => {
-        if (user) {
+        if (user && sessionId) {
             loadMessages();
         }
-    }, [user]);
+    }, [user, sessionId]);
 
     // Initialize/restore session ID for STM
     useEffect(() => {
@@ -341,8 +329,8 @@ const Chat: React.FC = () => {
     }, [messages]);
 
     const loadMessages = async () => {
-        if (!user) return;
-        const { data: dbMessages, error } = await getMessages(user.id);
+        if (!user || !sessionId) return;
+        const { data: dbMessages, error } = await getMessagesBySession(user.id, sessionId);
 
         if (error) {
             if (error.code === '42P01') {
@@ -368,8 +356,8 @@ const Chat: React.FC = () => {
         } else {
             setMessages(dbMessages.map(m => ({
                 id: m.id,
-                text: m.text,
-                sender: m.sender,
+                text: m.content,
+                sender: m.role === 'user' ? 'user' : 'ai',
                 timestamp: new Date(m.created_at),
             })));
         }
@@ -413,7 +401,7 @@ const Chat: React.FC = () => {
                 timestamp: new Date(),
             };
             setMessages((prev) => [...prev, userMsg]);
-            await createMessage(user.id, '📷 Uploaded receipt', 'user');
+            await createMessage(user.id, sessionId, 'user', '📷 Uploaded receipt');
 
             const thinkingMsg: Message = {
                 id: 'thinking',
@@ -436,7 +424,7 @@ const Chat: React.FC = () => {
                     timestamp: new Date(),
                 };
                 setMessages((prev) => [...prev, errorMsg]);
-                await createMessage(user.id, errorMsg.text, 'ai');
+                await createMessage(user.id, sessionId, 'assistant', errorMsg.text);
             } else {
                 // Show review modal instead of saving directly
                 setCurrentReceiptData({
@@ -509,7 +497,7 @@ const Chat: React.FC = () => {
                 timestamp: new Date(),
             };
             setMessages((prev) => [...prev, successMsg]);
-            await createMessage(user.id, successMsg.text, 'ai');
+            await createMessage(user.id, sessionId, 'assistant', successMsg.text);
 
             setShowReviewModal(false);
         } catch (error) {
@@ -519,12 +507,13 @@ const Chat: React.FC = () => {
     };
 
     const handleSendMessage = useCallback(async (text: string) => {
-        if (!text.trim() || !user || isProcessingRef.current) return;
+        if (!text.trim() || !user || !profile || isProcessingRef.current) return;
 
         isProcessingRef.current = true;
         setIsProcessing(true);
 
         try {
+            // Add user message to UI immediately
             const tempUserMsg: Message = {
                 id: Date.now().toString(),
                 text: text,
@@ -533,8 +522,7 @@ const Chat: React.FC = () => {
             };
             setMessages((prev) => [...prev, tempUserMsg]);
 
-            await createMessage(user.id, text, 'user');
-
+            // Show thinking indicator
             const thinkingMsg: Message = {
                 id: 'thinking',
                 text: '...',
@@ -543,209 +531,36 @@ const Chat: React.FC = () => {
             };
             setMessages((prev) => [...prev, thinkingMsg]);
 
-            const recentMessages: AIChatMessage[] = messages.slice(-5).map(m => ({
-                role: m.sender === 'user' ? 'user' : 'assistant',
-                content: m.text
-            }));
-
-            const recentTransactions = await getRecentTransactions(user.id, 3);
-
+            // Call optimized Edge Function (handles message saving internally)
             const aiResponse = await processChat({
                 userId: user.id,
-                sessionId: sessionId, // STM: Pass session ID for context
+                sessionId: sessionId,
                 message: text,
-                recentMessages,
-                recentTransactions: recentTransactions.map(t => ({
-                    amount: Number(t.amount),
-                    category: t.category,
-                    type: t.type,
-                    created_at: t.created_at
-                }))
+                profile: {
+                    full_name: profile.full_name ?? undefined,
+                    monthly_salary: profile.monthly_salary ?? undefined,
+                    currency: profile.currency ?? undefined,
+                    primary_goal: profile.primary_goal ?? undefined,
+                    communication_style: profile.communication_style ?? undefined
+                }
             });
 
+            // Remove thinking indicator
             setMessages((prev) => prev.filter(m => m.id !== 'thinking'));
 
-            if (aiResponse.mode === 'conversation') {
-                if (aiResponse.intent === 'ghost') {
-                    console.log('Sasha is ghosting this conversation.');
-                } else {
-                    await createMessage(user.id, aiResponse.reply, 'ai');
-                    const aiMsg: Message = {
-                        id: (Date.now() + 1).toString(),
-                        text: aiResponse.reply,
-                        sender: 'ai',
-                        timestamp: new Date(),
-                        chart: aiResponse.chart
-                    };
-                    setMessages((prev) => [...prev, aiMsg]);
-                }
-            } else if (aiResponse.mode === 'transaction') {
-                let finalResponseText = '';
+            // Add AI response to UI
+            const aiMsg: Message = {
+                id: (Date.now() + 1).toString(),
+                text: aiResponse.reply,
+                sender: 'ai',
+                timestamp: new Date(),
+                chart: aiResponse.chart
+            };
+            setMessages((prev) => [...prev, aiMsg]);
 
-                if (aiResponse.intent === 'create') {
-                    if (aiResponse.transaction) {
-                        const shouldConfirm = aiResponse.transaction.duplicateSuspect ||
-                            aiResponse.transaction.isRecurringSuspect ||
-                            aiResponse.confidence < 0.85;
-
-                        if (shouldConfirm) {
-                            const txPayload = {
-                                user_id: user.id,
-                                amount: aiResponse.transaction.amount,
-                                currency: aiResponse.transaction.currency,
-                                type: aiResponse.transaction.type,
-                                category: aiResponse.transaction.category,
-                                description: aiResponse.transaction.description,
-                                merchant_name: aiResponse.transaction.merchant,
-                                is_confirmed: false,
-                                base_amount: aiResponse.transaction.amount,
-                            };
-
-                            const pendingTx = await createTransaction(txPayload);
-
-                            setPendingTransactions(prev => [...prev, {
-                                id: pendingTx.id,
-                                amount: aiResponse.transaction!.amount,
-                                category: aiResponse.transaction!.category || 'Unknown',
-                                description: aiResponse.transaction!.description || '',
-                                question: aiResponse.reply
-                            }]);
-
-                            finalResponseText = `I noticed: ${aiResponse.transaction.description || 'transaction'} for ${aiResponse.transaction.amount} BDT. ${aiResponse.transaction.duplicateSuspect ? 'This looks like a duplicate. ' : ''
-                                }${aiResponse.transaction.isRecurringSuspect ? 'This might be a recurring bill. ' : ''
-                                }Should I save this?`;
-
-                        } else {
-                            const txPayload = {
-                                user_id: user.id,
-                                amount: aiResponse.transaction.amount,
-                                currency: aiResponse.transaction.currency,
-                                type: aiResponse.transaction.type,
-                                category: aiResponse.transaction.category,
-                                description: aiResponse.transaction.description,
-                                merchant_name: aiResponse.transaction.merchant,
-                                is_confirmed: true,
-                                base_amount: aiResponse.transaction.amount,
-                            };
-
-                            await createTransaction(txPayload);
-
-                            await refreshTransactions();
-
-                            finalResponseText = `Done! I saved ${aiResponse.transaction.amount} BDT for ${aiResponse.transaction.category || 'expense'}. If that's wrong, just say 'make it 350' or 'delete that'.`;
-                        }
-
-                        await createMessage(user.id, finalResponseText, 'ai');
-                        const aiMsg: Message = {
-                            id: (Date.now() + 1).toString(),
-                            text: finalResponseText,
-                            sender: 'ai',
-                            timestamp: new Date(),
-                        };
-                        setMessages((prev) => [...prev, aiMsg]);
-                    }
-                } else if (aiResponse.intent === 'edit') {
-                    const lastTx = await getLastTransaction(user.id);
-                    if (lastTx && aiResponse.transaction) {
-                        await updateTransaction(lastTx.id, {
-                            amount: aiResponse.transaction.amount,
-                            category: aiResponse.transaction.category,
-                            description: aiResponse.transaction.description,
-                        });
-                        await refreshTransactions();
-                    }
-
-                    await createMessage(user.id, aiResponse.reply, 'ai');
-                    const aiMsg: Message = {
-                        id: (Date.now() + 1).toString(),
-                        text: aiResponse.reply,
-                        sender: 'ai',
-                        timestamp: new Date(),
-                    };
-                    setMessages((prev) => [...prev, aiMsg]);
-                } else if (aiResponse.intent === 'delete' || aiResponse.intent === 'undo') {
-                    const lastTx = await getLastTransaction(user.id);
-                    if (lastTx) {
-                        await softDeleteTransaction(lastTx.id);
-                        await refreshTransactions();
-                    }
-
-                    await createMessage(user.id, aiResponse.reply, 'ai');
-                    const aiMsg: Message = {
-                        id: (Date.now() + 1).toString(),
-                        text: aiResponse.reply,
-                        sender: 'ai',
-                        timestamp: new Date(),
-                    };
-                    setMessages((prev) => [...prev, aiMsg]);
-                } else if (aiResponse.intent === 'confirm') {
-                    if (pendingTransactions.length > 0) {
-                        for (const pending of pendingTransactions) {
-                            await updateTransaction(pending.id, { is_confirmed: true });
-                        }
-                        setPendingTransactions([]);
-                        await refreshTransactions();
-
-                        const confirmText = `Great! I've saved all pending transactions.`;
-                        await createMessage(user.id, confirmText, 'ai');
-                        const aiMsg: Message = {
-                            id: (Date.now() + 1).toString(),
-                            text: confirmText,
-                            sender: 'ai',
-                            timestamp: new Date(),
-                        };
-                        setMessages((prev) => [...prev, aiMsg]);
-                    } else {
-                        await createMessage(user.id, aiResponse.reply, 'ai');
-                        const aiMsg: Message = {
-                            id: (Date.now() + 1).toString(),
-                            text: aiResponse.reply,
-                            sender: 'ai',
-                            timestamp: new Date(),
-                        };
-                        setMessages((prev) => [...prev, aiMsg]);
-                    }
-                } else if (aiResponse.intent === 'reject') {
-                    if (pendingTransactions.length > 0) {
-                        for (const pending of pendingTransactions) {
-                            await softDeleteTransaction(pending.id);
-                        }
-                        setPendingTransactions([]);
-
-                        const rejectText = `Okay, I've discarded those transactions.`;
-                        await createMessage(user.id, rejectText, 'ai');
-                        const aiMsg: Message = {
-                            id: (Date.now() + 1).toString(),
-                            text: rejectText,
-                            sender: 'ai',
-                            timestamp: new Date(),
-                        };
-                        setMessages((prev) => [...prev, aiMsg]);
-                    } else {
-                        await createMessage(user.id, aiResponse.reply, 'ai');
-                        const aiMsg: Message = {
-                            id: (Date.now() + 1).toString(),
-                            text: aiResponse.reply,
-                            sender: 'ai',
-                            timestamp: new Date(),
-                        };
-                        setMessages((prev) => [...prev, aiMsg]);
-                    }
-                }
-            }
-
-            if (pendingTransactions.length > 0 && aiResponse.intent !== 'confirm' && aiResponse.intent !== 'reject') {
-                const reminderText = `By the way, you still have ${pendingTransactions.length} pending item(s): ${pendingTransactions.map(p => `${p.description} ${p.amount} BDT`).join(', ')
-                    }. Should I save ${pendingTransactions.length === 1 ? 'it' : 'them'}?`;
-
-                await createMessage(user.id, reminderText, 'ai');
-                const reminderMsg: Message = {
-                    id: (Date.now() + 2).toString(),
-                    text: reminderText,
-                    sender: 'ai',
-                    timestamp: new Date(),
-                };
-                setMessages((prev) => [...prev, reminderMsg]);
+            // Refresh transactions if any were created
+            if (aiResponse.transactions && aiResponse.transactions.length > 0) {
+                await refreshTransactions();
             }
 
         } catch (error) {
@@ -764,7 +579,7 @@ const Chat: React.FC = () => {
             isProcessingRef.current = false;
             setIsProcessing(false);
         }
-    }, [user, messages, pendingTransactions, refreshTransactions]);
+    }, [user, profile, sessionId, refreshTransactions]);
 
     return (
         <div className="flex flex-col h-[calc(100vh-120px)] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

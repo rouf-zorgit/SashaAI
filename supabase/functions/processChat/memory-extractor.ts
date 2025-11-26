@@ -25,119 +25,126 @@ export interface MemoryCategory {
  */
 export async function extractEntities(
     message: string,
-    openaiKey: string
+    openaiKey: string,
+    forceAi: boolean = false
 ): Promise<ExtractedEntity[]> {
     const entities: ExtractedEntity[] = []
 
-    // Pattern-based extraction (fast, reliable)
+    // Skip regex if forcing AI (Deep Mode)
+    if (!forceAi) {
+        // Pattern-based extraction (fast, reliable)
 
-    // Extract salary
-    const salaryPatterns = [
-        /(?:my salary is|i earn|i make|income is)\s*(?:about\s*)?(\d+(?:,\d{3})*(?:\.\d{2})?)\s*(?:bdt|taka|tk)?/i,
-        /(?:salary|income):\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/i
-    ]
+        // Extract salary
+        const salaryPatterns = [
+            /(?:my salary is|i earn|i make|income is)\s*(?:about\s*)?(\d+(?:,\d{3})*(?:\.\d{2})?)\s*(?:bdt|taka|tk)?/i,
+            /(?:salary|income):\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/i
+        ]
 
-    for (const pattern of salaryPatterns) {
-        const match = message.match(pattern)
-        if (match) {
-            const amount = parseFloat(match[1].replace(/,/g, ''))
-            entities.push({
-                type: 'salary',
-                value: amount,
-                confidence: 0.95,
-                source: 'pattern_match'
-            })
-            break
+        for (const pattern of salaryPatterns) {
+            const match = message.match(pattern)
+            if (match) {
+                const amount = parseFloat(match[1].replace(/,/g, ''))
+                entities.push({
+                    type: 'salary',
+                    value: amount,
+                    confidence: 0.95,
+                    source: 'pattern_match'
+                })
+                break
+            }
+        }
+
+        // Extract name
+        const namePatterns = [
+            /(?:my name is|i'm|i am|call me)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i,
+            /^([A-Z][a-z]+)$/
+        ]
+
+        for (const pattern of namePatterns) {
+            const match = message.match(pattern)
+            if (match && match[1].length > 1 && match[1].length < 50) {
+                entities.push({
+                    type: 'name',
+                    value: match[1],
+                    confidence: 0.9,
+                    source: 'pattern_match'
+                })
+                break
+            }
+        }
+
+        // Extract fixed costs (rent, bills, etc.)
+        const fixedCostPatterns = [
+            /(?:my rent is|rent:|pay\s+(?:for\s+)?rent)\s*(?:about\s*)?(\d+(?:,\d{3})*(?:\.\d{2})?)/i,
+            /(?:electricity|internet|water|gas)\s+(?:bill|cost)?\s*(?:is)?\s*(?:about\s*)?(\d+(?:,\d{3})*(?:\.\d{2})?)/i
+        ]
+
+        for (const pattern of fixedCostPatterns) {
+            const match = message.match(pattern)
+            if (match) {
+                const amount = parseFloat(match[1].replace(/,/g, ''))
+                const costType = message.toLowerCase().includes('rent') ? 'rent' :
+                    message.toLowerCase().includes('electricity') ? 'electricity' :
+                        message.toLowerCase().includes('internet') ? 'internet' :
+                            message.toLowerCase().includes('water') ? 'water' :
+                                message.toLowerCase().includes('gas') ? 'gas' : 'other'
+
+                entities.push({
+                    type: 'fixed_cost',
+                    value: { type: costType, amount },
+                    confidence: 0.9,
+                    source: 'pattern_match'
+                })
+            }
+        }
+
+        // Extract preferences
+        const preferencePatterns = [
+            /i (?:prefer|like|want|need)\s+(.+)/i,
+            /(?:please|can you)\s+(?:be|use)\s+(.+)/i
+        ]
+
+        for (const pattern of preferencePatterns) {
+            const match = message.match(pattern)
+            if (match) {
+                entities.push({
+                    type: 'preference',
+                    value: match[1].trim(),
+                    confidence: 0.7,
+                    source: 'pattern_match'
+                })
+                break
+            }
+        }
+
+        // Extract goals
+        const goalPatterns = [
+            /i want to\s+(.+)/i,
+            /my goal is to\s+(.+)/i,
+            /i'm (?:planning to|trying to|hoping to)\s+(.+)/i
+        ]
+
+        for (const pattern of goalPatterns) {
+            const match = message.match(pattern)
+            if (match) {
+                entities.push({
+                    type: 'goal',
+                    value: match[1].trim(),
+                    confidence: 0.85,
+                    source: 'pattern_match'
+                })
+                break
+            }
         }
     }
 
-    // Extract name
-    const namePatterns = [
-        /(?:my name is|i'm|i am|call me)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i,
-        /^([A-Z][a-z]+)$/
-    ]
-
-    for (const pattern of namePatterns) {
-        const match = message.match(pattern)
-        if (match && match[1].length > 1 && match[1].length < 50) {
-            entities.push({
-                type: 'name',
-                value: match[1],
-                confidence: 0.9,
-                source: 'pattern_match'
-            })
-            break
-        }
-    }
-
-    // Extract fixed costs (rent, bills, etc.)
-    const fixedCostPatterns = [
-        /(?:my rent is|rent:|pay\s+(?:for\s+)?rent)\s*(?:about\s*)?(\d+(?:,\d{3})*(?:\.\d{2})?)/i,
-        /(?:electricity|internet|water|gas)\s+(?:bill|cost)?\s*(?:is)?\s*(?:about\s*)?(\d+(?:,\d{3})*(?:\.\d{2})?)/i
-    ]
-
-    for (const pattern of fixedCostPatterns) {
-        const match = message.match(pattern)
-        if (match) {
-            const amount = parseFloat(match[1].replace(/,/g, ''))
-            const costType = message.toLowerCase().includes('rent') ? 'rent' :
-                message.toLowerCase().includes('electricity') ? 'electricity' :
-                    message.toLowerCase().includes('internet') ? 'internet' :
-                        message.toLowerCase().includes('water') ? 'water' :
-                            message.toLowerCase().includes('gas') ? 'gas' : 'other'
-
-            entities.push({
-                type: 'fixed_cost',
-                value: { type: costType, amount },
-                confidence: 0.9,
-                source: 'pattern_match'
-            })
-        }
-    }
-
-    // Extract preferences
-    const preferencePatterns = [
-        /i (?:prefer|like|want|need)\s+(.+)/i,
-        /(?:please|can you)\s+(?:be|use)\s+(.+)/i
-    ]
-
-    for (const pattern of preferencePatterns) {
-        const match = message.match(pattern)
-        if (match) {
-            entities.push({
-                type: 'preference',
-                value: match[1].trim(),
-                confidence: 0.7,
-                source: 'pattern_match'
-            })
-            break
-        }
-    }
-
-    // Extract goals
-    const goalPatterns = [
-        /i want to\s+(.+)/i,
-        /my goal is to\s+(.+)/i,
-        /i'm (?:planning to|trying to|hoping to)\s+(.+)/i
-    ]
-
-    for (const pattern of goalPatterns) {
-        const match = message.match(pattern)
-        if (match) {
-            entities.push({
-                type: 'goal',
-                value: match[1].trim(),
-                confidence: 0.85,
-                source: 'pattern_match'
-            })
-            break
-        }
-    }
-
-    // AI-based extraction for complex entities (if patterns didn't catch anything important)
-    if (entities.length === 0 && openaiKey) {
+    // AI-based extraction for complex entities (or if forced)
+    if ((entities.length === 0 || forceAi) && openaiKey) {
         try {
             const aiEntities = await extractWithAI(message, openaiKey)
+
+            // If forcing AI, we might have duplicates if we ran regex too (but we skipped regex if forceAi is true)
+            // So just push all
             entities.push(...aiEntities)
         } catch (error) {
             console.error('AI extraction failed:', error)
@@ -348,10 +355,11 @@ export async function extractFromMessage(
     message: string,
     userId: string,
     openaiKey: string,
-    supabaseClient: any
+    supabaseClient: any,
+    forceAi: boolean = false
 ): Promise<ExtractedEntity[]> {
     // Extract entities
-    const entities = await extractEntities(message, openaiKey)
+    const entities = await extractEntities(message, openaiKey, forceAi)
 
     if (entities.length === 0) {
         return []

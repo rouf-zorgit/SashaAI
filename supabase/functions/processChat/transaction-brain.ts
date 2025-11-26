@@ -49,17 +49,37 @@ export async function validateTransaction(
         warnings.push('VERY HIGH AMOUNT: Please confirm this is correct')
     }
 
-    // Category-specific validation
-    if (transaction.category === 'coffee' && transaction.amount > 1000) {
-        warnings.push('SUSPICIOUS: Coffee expense over 1000 BDT')
-    }
+    // Dynamic category-specific validation (2x average)
+    // Fetch user's average spending for this category
+    const { data: categoryStats } = await supabaseClient
+        .from('transactions')
+        .select('amount')
+        .eq('user_id', userId)
+        .eq('category', transaction.category)
+        .gte('occurred_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()) // Last 30 days
 
-    if (transaction.category === 'food' && transaction.amount > 5000) {
-        warnings.push('SUSPICIOUS: Food expense over 5000 BDT')
-    }
+    if (categoryStats && categoryStats.length > 0) {
+        const amounts = categoryStats.map((t: any) => t.amount)
+        const avgAmount = amounts.reduce((sum: number, amt: number) => sum + amt, 0) / amounts.length
+        const threshold = avgAmount * 2
 
-    if (transaction.category === 'transport' && transaction.amount > 3000) {
-        warnings.push('SUSPICIOUS: Transport expense over 3000 BDT')
+        if (transaction.amount > threshold) {
+            warnings.push(`SUSPICIOUS: ${transaction.category} expense (${transaction.amount} BDT) is 2x higher than your average (${avgAmount.toFixed(0)} BDT)`)
+        }
+    } else {
+        // Fallback to reasonable defaults if no history
+        const defaultThresholds: { [key: string]: number } = {
+            'coffee': 1000,
+            'food': 5000,
+            'transport': 3000,
+            'shopping': 10000,
+            'entertainment': 5000
+        }
+
+        const threshold = defaultThresholds[transaction.category]
+        if (threshold && transaction.amount > threshold) {
+            warnings.push(`SUSPICIOUS: ${transaction.category} expense over ${threshold} BDT (no history to compare)`)
+        }
     }
 
     // Check for duplicates (same amount + merchant within 24 hours)

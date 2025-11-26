@@ -168,7 +168,7 @@ function generateSpamResponse(count: number, message: string): string {
         case 3:
             return "Okay, you're repeating yourself. I'm not responding to this anymore."
         default:
-            return "..." // Silent treatment
+            return "I'm pausing because we're going in circles. Let's talk about something else."
     }
 }
 

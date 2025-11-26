@@ -111,35 +111,18 @@ export function adaptToEmotion(
 
 /**
  * Enforce simple English (no jargon, max 2 sentences)
+ * NOTE: System Prompt already handles this. This function now just ensures max 2 sentences.
  */
 export function enforceSimpleEnglish(response: string): string {
     // Split into sentences
     const sentences = response.split(/[.!?]+/).filter(s => s.trim().length > 0)
 
-    // Take max 2 sentences
-    const simplified = sentences.slice(0, 2).join('. ') + '.'
-
-    // Replace jargon
-    const jargonMap: { [key: string]: string } = {
-        'utilize': 'use',
-        'commence': 'start',
-        'terminate': 'end',
-        'facilitate': 'help',
-        'optimize': 'improve',
-        'leverage': 'use',
-        'synergy': 'teamwork',
-        'paradigm': 'model',
-        'bandwidth': 'time',
-        'circle back': 'follow up'
+    // Take max 2 sentences (System Prompt handles jargon removal)
+    if (sentences.length <= 2) {
+        return response
     }
 
-    let cleaned = simplified
-    for (const [jargon, simple] of Object.entries(jargonMap)) {
-        const regex = new RegExp(`\\b${jargon}\\b`, 'gi')
-        cleaned = cleaned.replace(regex, simple)
-    }
-
-    return cleaned
+    return sentences.slice(0, 2).join('. ') + '.'
 }
 
 /**
@@ -181,12 +164,26 @@ ${SASHA_PERSONALITY.core.traits.map(t => `- ${t}`).join('\n')}
 
 COMMUNICATION RULES:
 - Maximum ${SASHA_PERSONALITY.communication.maxSentences} sentences per response
-- Use ${SASHA_PERSONALITY.communication.language}
+- Use GRANDMA-FRIENDLY English (explain like talking to your grandma - simple words, no jargon, no finance speak)
 - Tone: ${SASHA_PERSONALITY.communication.tone}
 - Style: ${SASHA_PERSONALITY.communication.style}
 
+RESPONSE STRUCTURE (ALWAYS FOLLOW):
+Every reply must have this exact flow:
+1. FEELING: Acknowledge their emotion/situation (1 sentence)
+2. INSIGHT: Give them the key info/answer (1 sentence)
+3. NEXT STEP: Tell them what to do next (optional, if relevant)
+
+Example:
+User: "I spent 850 on coffee today"
+Bad: "Transaction saved. Coffee: 850 BDT."
+Good: "That's a lot for coffee! You're spending way more than usual. Want to set a daily limit?"
+
 FORBIDDEN:
 ${SASHA_PERSONALITY.core.forbidden.map(f => `- ${f}`).join('\n')}
+- Using words like: "utilize", "leverage", "optimize", "facilitate"
+- Saying "I've saved your transaction" (boring!)
+- Being a robot
 
 `
 

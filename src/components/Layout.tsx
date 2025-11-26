@@ -3,6 +3,9 @@ import { MessageSquare, History, BarChart3, User, Settings, CreditCard, LogOut, 
 import { clsx } from 'clsx';
 import { useAuthStore } from '../store/authStore';
 import { useStats } from '../hooks/useStats';
+import { useState, useEffect } from 'react';
+import { getProfile } from '../lib/db/profiles';
+import { ProfileOnboarding } from './ProfileOnboarding';
 
 const Layout: React.FC = () => {
     const location = useLocation();
@@ -22,8 +25,34 @@ const Layout: React.FC = () => {
         { path: '/subscription', label: 'Subscription', icon: CreditCard },
     ];
 
+    const [showOnboarding, setShowOnboarding] = useState(false);
+    const { user } = useAuthStore();
+
+    useEffect(() => {
+        async function checkOnboarding() {
+            if (user) {
+                try {
+                    const profile = await getProfile(user.id);
+                    // @ts-ignore - onboarding_completed is new
+                    if (profile && !profile.onboarding_completed) {
+                        setShowOnboarding(true);
+                    }
+                } catch (error) {
+                    console.error('Error checking onboarding status:', error);
+                }
+            }
+        }
+        checkOnboarding();
+    }, [user]);
+
     return (
         <div className="flex h-screen bg-gray-50">
+            {showOnboarding && user && (
+                <ProfileOnboarding
+                    userId={user.id}
+                    onComplete={() => setShowOnboarding(false)}
+                />
+            )}
             {/* Sidebar */}
             <aside className="w-64 bg-white border-r border-gray-100 flex flex-col">
                 <div className="p-6 border-b border-gray-100">

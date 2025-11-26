@@ -14,10 +14,15 @@ export interface Transaction {
 
 export interface ChatRequest {
     userId: string;
-    sessionId?: string; // STM: Session ID for context tracking
+    sessionId: string;
     message: string;
-    recentMessages: ChatMessage[];
-    recentTransactions: Transaction[];
+    profile: {
+        full_name?: string;
+        monthly_salary?: number;
+        currency?: string;
+        primary_goal?: string;
+        communication_style?: string;
+    };
 }
 
 export interface TransactionData {
@@ -27,9 +32,9 @@ export interface TransactionData {
     category: string;
     merchant?: string;
     description: string;
-    occurred_at: string;
-    isRecurringSuspect: boolean;
-    duplicateSuspect: boolean;
+    occurred_at?: string;
+    isRecurringSuspect?: boolean;
+    duplicateSuspect?: boolean;
     duplicateReason?: string;
     recurringReason?: string;
 }
@@ -37,9 +42,10 @@ export interface TransactionData {
 export interface ChatResponse {
     mode: 'conversation' | 'transaction';
     reply: string;
-    intent: 'create' | 'edit' | 'delete' | 'undo' | 'confirm' | 'reject' | 'none' | 'ghost';
+    intent: 'create' | 'edit' | 'delete' | 'undo' | 'confirm' | 'reject' | 'none' | 'ghost' | 'transaction' | 'conversation' | 'query';
     confidence: number;
     transaction?: TransactionData;
+    transactions?: TransactionData[];
     chart?: {
         type: 'pie' | 'bar';
         title: string;
@@ -68,7 +74,7 @@ export interface ReceiptResponse {
 export async function processChat(request: ChatRequest): Promise<ChatResponse> {
     try {
         console.log('Calling processChat Edge Function with:', request);
-        
+
         const { data, error } = await supabase.functions.invoke('processChat', {
             body: request
         });

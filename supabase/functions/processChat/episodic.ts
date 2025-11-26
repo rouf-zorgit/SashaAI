@@ -62,9 +62,9 @@ export async function getSpendingEpisode(
 }
 
 /**
- * Generate episodic context for AI
+ * Get spending recap for context (NOT episodic memory)
  */
-export async function generateEpisodicContext(
+export async function getSpendingRecap(
     userId: string,
     supabaseClient: any
 ): Promise<string> {
