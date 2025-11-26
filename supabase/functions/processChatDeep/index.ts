@@ -96,8 +96,8 @@ serve(async (req) => {
         // TASK 2: DEEP LTM EXTRACTION
         // =====================================================================
         console.log(`\n🧠 DEEP LTM EXTRACTION...`)
-        const openaiKey = Deno.env.get('OPENAI_API_KEY') ?? ''
-        await extractFromMessage(userContent, userId, openaiKey, supabaseClient, true)
+        const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
+        await extractFromMessage(userContent, userId, anthropicKey, supabaseClient, true)
         console.log(`✅ LTM extraction complete`)
 
         // =====================================================================
@@ -106,8 +106,7 @@ serve(async (req) => {
         console.log(`\n📝 UPDATING STM...`)
 
         // Use AI to detect topic changes and corrections
-        const openaiKey = Deno.env.get('OPENAI_API_KEY') ?? ''
-        if (openaiKey) {
+        if (anthropicKey) {
             try {
                 const stmAnalysisPrompt = `Analyze this conversation pair for STM tracking:
 
@@ -126,27 +125,30 @@ Return JSON:
 Examples:
 - "Let's talk about savings" → topicChange: "savings"
 - "No, I spent 500 not 50" → isCorrection: true, correctionField: "amount", correctionOldValue: "50", correctionNewValue: "500"
-- Normal chat → all null/false`
+- Normal chat → all null/false
 
-                const stmResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+IMPORTANT: Return only valid JSON, no other text.`
+
+                const stmResponse = await fetch('https://api.anthropic.com/v1/messages', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${openaiKey}`,
-                        'Content-Type': 'application/json',
+                        'x-api-key': anthropicKey,
+                        'anthropic-version': '2023-06-01',
+                        'content-type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: 'gpt-4o-mini',
+                        model: 'claude-3-5-sonnet-20241022',
+                        max_tokens: 512,
+                        system: 'You are a precise STM analyzer. Return only valid JSON.',
                         messages: [
-                            { role: 'system', content: 'You are a precise STM analyzer. Return only valid JSON.' },
                             { role: 'user', content: stmAnalysisPrompt }
                         ],
-                        temperature: 0.1,
-                        response_format: { type: "json_object" }
+                        temperature: 0.1
                     })
                 })
 
                 const stmData = await stmResponse.json()
-                const analysis = JSON.parse(stmData.choices[0].message.content)
+                const analysis = JSON.parse(stmData.content[0].text)
 
                 // Track topic change
                 if (analysis.topicChange) {
@@ -180,7 +182,7 @@ Examples:
         // Generate semantic summary instead of raw text
         let episodeSummary = `User: ${userContent.substring(0, 50)}... | AI: ${aiContent.substring(0, 50)}...`
 
-        if (openaiKey) {
+        if (anthropicKey) {
             try {
                 const summaryPrompt = `Summarize this conversation in 1 short sentence (max 10 words):
 
@@ -195,25 +197,26 @@ Examples:
 
 Return ONLY the summary, nothing else.`
 
-                const summaryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                const summaryResponse = await fetch('https://api.anthropic.com/v1/messages', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${openaiKey}`,
-                        'Content-Type': 'application/json',
+                        'x-api-key': anthropicKey,
+                        'anthropic-version': '2023-06-01',
+                        'content-type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: 'gpt-4o-mini',
+                        model: 'claude-3-5-sonnet-20241022',
+                        max_tokens: 50,
+                        system: 'You are a concise summarizer. Return only the summary.',
                         messages: [
-                            { role: 'system', content: 'You are a concise summarizer. Return only the summary.' },
                             { role: 'user', content: summaryPrompt }
                         ],
-                        temperature: 0.3,
-                        max_tokens: 20
+                        temperature: 0.3
                     })
                 })
 
                 const summaryData = await summaryResponse.json()
-                episodeSummary = summaryData.choices[0].message.content.trim()
+                episodeSummary = summaryData.content[0].text.trim()
             } catch (error) {
                 console.error('Episode summary generation failed:', error)
             }
