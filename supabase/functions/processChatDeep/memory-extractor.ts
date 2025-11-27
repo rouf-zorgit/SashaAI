@@ -25,7 +25,7 @@ export interface MemoryCategory {
  */
 export async function extractEntities(
     message: string,
-    openaiKey: string
+    anthropicKey: string
 ): Promise<ExtractedEntity[]> {
     const entities: ExtractedEntity[] = []
 
@@ -135,9 +135,9 @@ export async function extractEntities(
     }
 
     // AI-based extraction for complex entities (if patterns didn't catch anything important)
-    if (entities.length === 0 && openaiKey) {
+    if (entities.length === 0 && anthropicKey) {
         try {
-            const aiEntities = await extractWithAI(message, openaiKey)
+            const aiEntities = await extractWithAI(message, anthropicKey)
             entities.push(...aiEntities)
         } catch (error) {
             console.error('AI extraction failed:', error)
@@ -152,7 +152,7 @@ export async function extractEntities(
  */
 async function extractWithAI(
     message: string,
-    openaiKey: string
+    anthropicKey: string
 ): Promise<ExtractedEntity[]> {
     const prompt = `Extract structured information from this message. Return JSON array of entities.
 
@@ -173,27 +173,28 @@ Return format:
 
 If nothing found, return []`
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${openaiKey}`,
-            'Content-Type': 'application/json',
+            'x-api-key': anthropicKey,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
         },
         body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: 'claude-3-5-sonnet-20240620',
+            max_tokens: 1024,
+            system: 'You are a precise entity extraction system. Return only valid JSON.',
             messages: [
-                { role: 'system', content: 'You are a precise entity extraction system. Return only valid JSON.' },
                 { role: 'user', content: prompt }
             ],
-            temperature: 0.1,
-            response_format: { type: "json_object" }
+            temperature: 0.1
         })
     })
 
     const data = await response.json()
-    const result = JSON.parse(data.choices[0].message.content)
+    const result = JSON.parse(data.content[0].text)
 
-    return (result.entities || []).map((e: any) => ({
+    return (result.entities || result || []).map((e: any) => ({
         ...e,
         source: 'ai_extraction'
     }))
@@ -347,11 +348,11 @@ export async function autoSaveMemory(
 export async function extractFromMessage(
     message: string,
     userId: string,
-    openaiKey: string,
+    anthropicKey: string,
     supabaseClient: any
 ): Promise<ExtractedEntity[]> {
     // Extract entities
-    const entities = await extractEntities(message, openaiKey)
+    const entities = await extractEntities(message, anthropicKey)
 
     if (entities.length === 0) {
         return []

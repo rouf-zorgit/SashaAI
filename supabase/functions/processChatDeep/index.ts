@@ -97,7 +97,7 @@ serve(async (req) => {
         // =====================================================================
         console.log(`\n🧠 DEEP LTM EXTRACTION...`)
         const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
-        await extractFromMessage(userContent, userId, anthropicKey, supabaseClient, true)
+        await extractFromMessage(userContent, userId, anthropicKey, supabaseClient)
         console.log(`✅ LTM extraction complete`)
 
         // =====================================================================

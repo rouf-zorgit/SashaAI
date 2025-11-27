@@ -101,7 +101,7 @@ Required for all functions:
 - `SUPABASE_SERVICE_ROLE_KEY`
 
 Required for processChat:
-- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
 
 ## Next Steps
 
