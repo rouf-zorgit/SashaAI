@@ -271,6 +271,3 @@ For issues or questions:
 2. Review [docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md)
 3. Open an issue on GitHub
 
----
-
-**Built with ❤️ using Antigravity AI**
