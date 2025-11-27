@@ -144,7 +144,7 @@ If no transactions detected, return empty transactions array.
                 'content-type': 'application/json',
             },
             body: JSON.stringify({
-                model: 'claude-3-5-sonnet-20241022',
+                model: 'claude-3-5-sonnet-20240620',
                 max_tokens: 1024,
                 system: systemPrompt + '\n\nIMPORTANT: You must respond with valid JSON only, no other text.',
                 messages,
