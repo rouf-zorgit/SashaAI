@@ -17,6 +17,16 @@ export const UndoToast: React.FC<UndoToastProps> = ({
     const [timeLeft, setTimeLeft] = useState(duration);
     const [isVisible, setIsVisible] = useState(true);
 
+    const handleDismiss = () => {
+        setIsVisible(false);
+        setTimeout(onDismiss, 300);
+    };
+
+    const handleUndo = () => {
+        setIsVisible(false);
+        onUndo();
+    };
+
     useEffect(() => {
         const interval = setInterval(() => {
             setTimeLeft(prev => {
@@ -30,17 +40,8 @@ export const UndoToast: React.FC<UndoToastProps> = ({
         }, 100);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [handleDismiss]);
 
-    const handleUndo = () => {
-        setIsVisible(false);
-        onUndo();
-    };
-
-    const handleDismiss = () => {
-        setIsVisible(false);
-        setTimeout(onDismiss, 300);
-    };
 
     if (!isVisible) return null;
 

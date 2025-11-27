@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient as _createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { logger } from './logger.ts'
 
 export interface UsageMetric {

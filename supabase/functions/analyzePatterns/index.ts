@@ -63,7 +63,7 @@ serve(async (req) => {
                 if (txs.length >= 2) {
                     // Check intervals
                     let isRecurring = true
-                    let totalInterval = 0
+                    let _totalInterval = 0
                     let count = 0
                     
                     for (let i = 1; i < txs.length; i++) {
@@ -73,7 +73,7 @@ serve(async (req) => {
                         
                         // Allow variance (e.g., 28-32 days for monthly)
                         if (days >= 25 && days <= 35) {
-                            totalInterval += days
+                            _totalInterval += days
                             count++
                         } else {
                             isRecurring = false

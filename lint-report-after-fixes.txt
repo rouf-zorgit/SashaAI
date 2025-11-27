@@ -1,0 +1,389 @@
+﻿
+> finai-mvp@0.0.0 lint
+> eslint .
+
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\CashFlowChart.tsx
+  10:11  warning  The 'loadPredictions' function makes the dependencies of useEffect Hook (at line 20) change on every render. Move it inside the useEffect callback. Alternatively, wrap the definition of 'loadPredictions' in its own useCallback() Hook                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react-hooks/exhaustive-deps
+  18:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\CashFlowChart.tsx:18:13
+  16 |     useEffect(() => {
+  17 |         if (userId) {
+> 18 |             loadPredictions();
+     |             ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  19 |         }
+  20 |     }, [userId, loadPredictions]);
+  21 |  react-hooks/set-state-in-effect
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\EditTransactionModal.tsx
+  44:82  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\Layout.tsx
+  36:21  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\PatternInsights.tsx
+  10:11  warning  The 'loadPatterns' function makes the dependencies of useEffect Hook (at line 20) change on every render. Move it inside the useEffect callback. Alternatively, wrap the definition of 'loadPatterns' in its own useCallback() Hook                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            react-hooks/exhaustive-deps
+  18:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\PatternInsights.tsx:18:13
+  16 |     useEffect(() => {
+  17 |         if (userId) {
+> 18 |             loadPatterns();
+     |             ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  19 |         }
+  20 |     }, [userId, loadPatterns]);
+  21 |  react-hooks/set-state-in-effect
+  50:69  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\Paywall.tsx
+  76:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\SarcasmSettings.tsx
+  6:82  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\ScenarioPlanner.tsx
+  9:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\UndoToast.tsx
+  20:11  warning  The 'handleDismiss' function makes the dependencies of useEffect Hook (at line 43) change on every render. To fix this, wrap the definition of 'handleDismiss' in its own useCallback() Hook  react-hooks/exhaustive-deps
+
+C:\Users\abdur\.gemini\finAI - MVP\src\contexts\TransactionContext.tsx
+  55:8   warning  React Hook useEffect has a missing dependency: 'fetchTransactions'. Either include it or remove the dependency array            react-hooks/exhaustive-deps
+  64:17  error    Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\abdur\.gemini\finAI - MVP\src\lib\db\messages.ts
+   11:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   21:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   43:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   64:86  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   90:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  121:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\lib\db\sasha.ts
+  286:15  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  361:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  464:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  465:15  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  522:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  538:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  549:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  583:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  603:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  615:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  625:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  653:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  672:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  684:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  695:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  765:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  780:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  785:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  807:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  823:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  840:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  856:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  872:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\lib\db\transactions.ts
+  56:77  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\lib\undo.ts
+  10:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  25:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Budgets.tsx
+   18:8   warning  React Hook useEffect has a missing dependency: 'loadBudgets'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  145:43  warning  Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  156:85  warning  Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  206:72  warning  Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Chat.tsx
+  177:31  warning  Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+  262:66  warning  Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+  280:8   warning  React Hook useEffect has a missing dependency: 'loadMessages'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  305:26  error    'e' is defined but never used                                                                                    @typescript-eslint/no-unused-vars
+  460:44  warning  Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\ForgotPassword.tsx
+  25:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Goals.tsx
+   18:8   warning  React Hook useEffect has a missing dependency: 'loadGoals'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  171:41  warning  Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+  197:81  warning  Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Login.tsx
+  47:13  error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  52:23  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Notifications.tsx
+  18:8   warning  React Hook useEffect has a missing dependency: 'loadNotifications'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  87:57  warning  Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Profile.tsx
+  25:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  54:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  56:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Receipts.tsx
+  26:8  warning  React Hook useEffect has a missing dependency: 'fetchReceipts'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Reminders.tsx
+   19:8   warning  React Hook useEffect has a missing dependency: 'loadReminders'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          react-hooks/exhaustive-deps
+  163:45  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  187:11  warning  The 'dueDate' object construction makes the dependencies of useMemo Hook (at line 190) change on every render. To fix this, wrap the initialization of 'dueDate' in its own useMemo() Hook                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                react-hooks/exhaustive-deps
+  189:47  error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Reminders.tsx:189:47
+  187 |     const dueDate = new Date(reminder.due_date);
+  188 |     const daysUntil = useMemo(() => {
+> 189 |         return Math.ceil((dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      |                                               ^^^^^^^^^^ Cannot call impure function
+  190 |     }, [dueDate]);
+  191 |
+  192 |     return (  react-hooks/purity
+  247:89  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  321:79  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Signup.tsx
+  31:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Subscription.tsx
+  16:8  warning  React Hook useEffect has a missing dependency: 'loadStatus'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\abdur\.gemini\finAI - MVP\src\store\authStore.ts
+   90:11  error  Unnecessary catch clause  no-useless-catch
+  105:11  error  Unnecessary catch clause  no-useless-catch
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\_shared\analytics.ts
+   1:10  error    'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  11:16  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  14:69  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\_shared\logger.ts
+  2:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  5:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  8:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\_shared\patterns.ts
+    8:10  error    'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   17:16  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   25:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   43:44  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  125:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  190:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  266:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  322:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  377:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  421:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\_shared\sentry.ts
+  23:73  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\analyzePatterns\index.ts
+  52:50  warning  Unexpected any. Specify a different type                                                  @typescript-eslint/no-explicit-any
+  76:29  error    'totalInterval' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChatDeep\episodic.ts
+   8:10  error    'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  15:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  50:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  51:12  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  69:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  96:11  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  98:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChatDeep\memory-extractor.ts
+    8:10  error    'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   12:12  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   20:11  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  196:44  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  275:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  351:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChatDeep\memory-injector.ts
+   12:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   13:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   14:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   15:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   50:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   81:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  105:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  135:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  136:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  137:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  138:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  140:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  141:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  142:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  180:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  181:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChatDeep\personality.ts
+   54:5   error    'intensity' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  173:22  warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChatDeep\spam-controller.ts
+    8:10  error    'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   39:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   96:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  164:46  error    'message' is defined but never used. Allowed unused args must match /^_/u       @typescript-eslint/no-unused-vars
+  189:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  190:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChatDeep\stm.ts
+    8:10  error    'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   17:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   44:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   69:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   93:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   94:12  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  110:57  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChatDeep\transaction-brain.ts
+    8:10   error    'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   36:21   warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  111:21   warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  192:21   warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  243:21   warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  290:21   warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  291:116  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChatDeep\types.ts
+   45:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   86:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  108:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChatDeep\utils.ts
+   13:47  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+   75:14  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+   76:18  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+   77:15  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+   78:15  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+   79:24  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+  122:15  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+  123:5   error    'recurringPayments' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  123:24  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChat\episodic.ts
+   8:10  error    'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  15:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  50:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  51:12  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  69:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  96:11  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  98:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChat\index.ts
+  203:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChat\ltm.ts
+    8:10  error    'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   16:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   50:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   99:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  133:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  166:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  195:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChat\memory-extractor.ts
+    8:10  error    'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   12:12  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   20:11  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  203:44  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  282:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  358:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChat\memory-injector.ts
+   12:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   13:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   14:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   15:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   50:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   81:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  105:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  135:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  136:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  137:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  138:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  140:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  141:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  142:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  180:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  181:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChat\personality.ts
+   54:5   error    'intensity' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  156:22  warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChat\spam-controller.ts
+    8:10  error    'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   39:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   96:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  164:46  error    'message' is defined but never used. Allowed unused args must match /^_/u       @typescript-eslint/no-unused-vars
+  189:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  190:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChat\stm.ts
+    8:10  error    'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   17:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   44:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   69:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   93:21  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   94:12  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  110:57  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChat\transaction-brain.ts
+    8:10   error    'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   36:21   warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+   62:47   warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  131:21   warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  212:21   warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  263:21   warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  310:21   warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+  311:116  warning  Unexpected any. Specify a different type                                        @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChat\types.ts
+   45:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   86:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  108:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChat\utils.ts
+   13:47  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+   83:14  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+   84:18  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+   85:15  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+   86:15  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+   87:24  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+  130:15  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+  131:5   error    'recurringPayments' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  131:24  warning  Unexpected any. Specify a different type                                             @typescript-eslint/no-explicit-any
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processReceipt\index.ts
+  111:18  error  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\testSentry\index.ts
+  21:17  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  56:1   error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+Γ£û 237 problems (33 errors, 204 warnings)
+

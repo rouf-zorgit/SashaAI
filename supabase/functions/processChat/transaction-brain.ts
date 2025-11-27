@@ -5,7 +5,7 @@
 // Prevents wrong auto-saves and ensures perfect accuracy
 // ============================================================================
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient as _createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 export interface TransactionValidation {
     isValid: boolean

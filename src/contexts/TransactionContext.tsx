@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { getUserTransactions, subscribeToTransactions } from '../lib/db/transactions';
@@ -61,6 +62,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTransactions() {
     const context = useContext(TransactionContext);
     if (context === undefined) {

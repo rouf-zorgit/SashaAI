@@ -5,7 +5,7 @@
 // Categorizes and saves to appropriate memory type (LTM, STM, Episodic)
 // ============================================================================
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient as _createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 export interface ExtractedEntity {
     type: 'salary' | 'fixed_cost' | 'preference' | 'goal' | 'name' | 'behavior' | 'other'

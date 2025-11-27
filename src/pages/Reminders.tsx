@@ -110,6 +110,7 @@ const Reminders: React.FC = () => {
                                         onDelete={handleDelete}
                                         onMarkPaid={handleMarkPaid}
                                         isOverdue
+                                        now={now}
                                     />
                                 ))}
                             </div>
@@ -129,6 +130,7 @@ const Reminders: React.FC = () => {
                                         reminder={reminder}
                                         onDelete={handleDelete}
                                         onMarkPaid={handleMarkPaid}
+                                        now={now}
                                     />
                                 ))}
                             </div>
@@ -149,6 +151,7 @@ const Reminders: React.FC = () => {
                                         onDelete={handleDelete}
                                         onMarkPaid={handleMarkPaid}
                                         isPaid
+                                        now={now}
                                     />
                                 ))}
                             </div>
@@ -176,16 +179,18 @@ function ReminderCard({
     onDelete,
     onMarkPaid,
     isOverdue = false,
-    isPaid = false
+    isPaid = false,
+    now
 }: {
     reminder: BillReminder;
     onDelete: (id: string) => void;
     onMarkPaid: (reminder: BillReminder) => void;
     isOverdue?: boolean;
     isPaid?: boolean;
+    now: Date;
 }) {
     const dueDate = new Date(reminder.due_date);
-    const daysUntil = Math.ceil((dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    const daysUntil = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
     return (
         <div className={`bg-white p-6 rounded-lg shadow ${isOverdue ? 'border-2 border-red-500' : isPaid ? 'border-2 border-green-500' : ''}`}>

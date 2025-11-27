@@ -18,7 +18,7 @@ serve(async (req) => {
         // Test Sentry error capture
         setTimeout(() => {
             try {
-                // @ts-ignore - intentional error for testing
+                // @ts-expect-error - intentional error for testing
                 foo()
             } catch (e) {
                 captureException(e as Error, {
@@ -53,7 +53,7 @@ serve(async (req) => {
 })
 
 // Supabase Edge Function config to skip auth
-// @ts-ignore
+// @ts-expect-error - Deno.serve.config is valid but not in types
 Deno.serve.config = {
     verify_jwt: false
 }

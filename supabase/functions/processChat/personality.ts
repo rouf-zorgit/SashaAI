@@ -51,7 +51,7 @@ export interface EmotionAdaptation {
  */
 export function adaptToEmotion(
     emotion: string,
-    intensity: number
+    _intensity: number
 ): EmotionAdaptation {
     switch (emotion) {
         case 'stressed':

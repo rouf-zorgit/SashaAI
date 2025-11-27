@@ -1,0 +1,79 @@
+﻿
+> finai-mvp@0.0.0 lint
+> eslint .
+
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\CashFlowChart.tsx
+  18:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\CashFlowChart.tsx:18:13
+  16 |     useEffect(() => {
+  17 |         if (userId) {
+> 18 |             loadPredictions();
+     |             ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  19 |         }
+  20 |     }, [userId, loadPredictions]);
+  21 |  react-hooks/set-state-in-effect
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\PatternInsights.tsx
+  18:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\PatternInsights.tsx:18:13
+  16 |     useEffect(() => {
+  17 |         if (userId) {
+> 18 |             loadPatterns();
+     |             ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  19 |         }
+  20 |     }, [userId, loadPatterns]);
+  21 |  react-hooks/set-state-in-effect
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\Paywall.tsx
+  76:10  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\abdur\.gemini\finAI - MVP\src\components\UndoToast.tsx
+  20:11  warning  The 'handleDismiss' function makes the dependencies of useEffect Hook (at line 43) change on every render. To fix this, wrap the definition of 'handleDismiss' in its own useCallback() Hook  react-hooks/exhaustive-deps
+
+C:\Users\abdur\.gemini\finAI - MVP\src\contexts\TransactionContext.tsx
+  55:8  warning  React Hook useEffect has a missing dependency: 'fetchTransactions'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Budgets.tsx
+  18:8  warning  React Hook useEffect has a missing dependency: 'loadBudgets'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Chat.tsx
+  280:8  warning  React Hook useEffect has a missing dependency: 'loadMessages'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Goals.tsx
+  18:8  warning  React Hook useEffect has a missing dependency: 'loadGoals'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Notifications.tsx
+  18:8  warning  React Hook useEffect has a missing dependency: 'loadNotifications'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Receipts.tsx
+  26:8  warning  React Hook useEffect has a missing dependency: 'fetchReceipts'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Reminders.tsx
+  19:8  warning  React Hook useEffect has a missing dependency: 'loadReminders'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\abdur\.gemini\finAI - MVP\src\pages\Subscription.tsx
+  16:8  warning  React Hook useEffect has a missing dependency: 'loadStatus'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChatDeep\personality.ts
+  54:5  error  'intensity' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\abdur\.gemini\finAI - MVP\supabase\functions\processChatDeep\spam-controller.ts
+  164:46  error  'message' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+Γ£û 14 problems (5 errors, 9 warnings)
+

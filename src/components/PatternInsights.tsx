@@ -8,16 +8,20 @@ export function PatternInsights({ userId }: { userId: string }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (userId) {
-            loadPatterns();
-        }
+        let mounted = true;
+        const loadPatterns = async () => {
+            if (!userId) return;
+            const data = await getUserPatterns(userId);
+            if (mounted) {
+                setPatterns(data);
+                setLoading(false);
+            }
+        };
+        loadPatterns();
+        return () => { mounted = false; };
     }, [userId]);
 
-    const loadPatterns = async () => {
-        const data = await getUserPatterns(userId);
-        setPatterns(data);
-        setLoading(false);
-    };
+
 
     if (loading) return null;
     if (patterns.length === 0) return null;

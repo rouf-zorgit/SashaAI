@@ -108,7 +108,7 @@ If you cannot read the receipt clearly, return:
         let parsedData
         try {
             parsedData = JSON.parse(content)
-        } catch (e) {
+        } catch {
             console.error('Failed to parse OpenAI response:', content)
             throw new Error('Invalid response from AI')
         }

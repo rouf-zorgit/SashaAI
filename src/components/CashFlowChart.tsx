@@ -8,16 +8,20 @@ export function CashFlowChart({ userId }: { userId: string }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (userId) {
-            loadPredictions();
-        }
+        let mounted = true;
+        const loadPredictions = async () => {
+            if (!userId) return;
+            const predictions = await getCashFlowPredictions(userId);
+            if (mounted) {
+                setData(predictions);
+                setLoading(false);
+            }
+        };
+        loadPredictions();
+        return () => { mounted = false; };
     }, [userId]);
 
-    const loadPredictions = async () => {
-        const predictions = await getCashFlowPredictions(userId);
-        setData(predictions);
-        setLoading(false);
-    };
+
 
     if (loading) return <div className="h-64 bg-gray-50 rounded-xl animate-pulse"></div>;
     if (data.length === 0) return null;

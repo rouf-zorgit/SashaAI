@@ -5,7 +5,7 @@
 // Identifies recurring bills with fuzzy matching and temporal analysis
 // ============================================================================
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient as _createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 export interface DetectedPattern {
     type: 'weekend_spike' | 'payday_splurge' | 'category_addiction' | 'recurring_bill' | 'sudden_spike'

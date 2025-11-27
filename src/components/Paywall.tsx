@@ -72,18 +72,4 @@ export const Paywall: React.FC<PaywallProps> = ({ feature, children }) => {
     );
 };
 
-// Hook for checking feature access
-export function useFeatureAccess(feature: keyof typeof FEATURES): boolean {
-    const { user } = useAuthStore();
-    const [hasAccess, setHasAccess] = useState(false);
 
-    useEffect(() => {
-        if (user) {
-            getSubscriptionStatus(user.id).then(status => {
-                setHasAccess(hasFeatureAccess(feature, status.tier));
-            });
-        }
-    }, [user, feature]);
-
-    return hasAccess;
-}

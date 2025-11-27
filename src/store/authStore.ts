@@ -87,8 +87,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 },
             });
             if (error) throw error;
-        } catch (error) {
-            throw error;
         } finally {
             set({ loading: false });
         }
@@ -102,8 +100,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 password,
             });
             if (error) throw error;
-        } catch (error) {
-            throw error;
         } finally {
             set({ loading: false });
         }

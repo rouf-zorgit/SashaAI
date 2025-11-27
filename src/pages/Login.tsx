@@ -44,7 +44,7 @@ const Login: React.FC = () => {
 
         try {
             // Set persistence based on "Remember Me"
-            // @ts-ignore - setPersistence exists in v2 but types might be missing in this version
+            // @ts-expect-error - setPersistence exists in v2 but types might be missing in this version
             await supabase.auth.setPersistence(rememberMe ? 'local' : 'session');
 
             await signInWithEmail(email, password);

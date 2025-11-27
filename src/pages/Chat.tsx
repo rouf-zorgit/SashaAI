@@ -302,7 +302,7 @@ const Chat: React.FC = () => {
                         }));
                         console.log('Session expired, created new:', newId);
                     }
-                } catch (e) {
+                } catch {
                     // Invalid stored data, create new session
                     const newId = generateSessionId(user.id);
                     setSessionId(newId);

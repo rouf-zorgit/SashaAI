@@ -76,7 +76,7 @@ export function buildMemoryContext(
     preferences: any,
     memories: any[],
     patterns: any[],
-    recurringPayments: any[]
+    _recurringPayments: any[]
 ): string {
     let context = '';
 
@@ -120,7 +120,7 @@ export function buildMemoryContext(
  */
 export function generateProactiveNudge(
     patterns: any[],
-    recurringPayments: any[]
+    _recurringPayments: any[]
 ): string {
     const now = new Date();
     const dayOfWeek = now.getDay();

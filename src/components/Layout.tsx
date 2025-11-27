@@ -33,7 +33,6 @@ const Layout: React.FC = () => {
             if (user) {
                 try {
                     const profile = await getProfile(user.id);
-                    // @ts-ignore - onboarding_completed is new
                     if (profile && !profile.onboarding_completed) {
                         setShowOnboarding(true);
                     }

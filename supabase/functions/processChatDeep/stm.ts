@@ -5,7 +5,7 @@
 // Remembers topics, corrections, and pending clarifications
 // ============================================================================
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient as _createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * Track conversation topic

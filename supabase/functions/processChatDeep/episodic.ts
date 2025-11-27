@@ -5,7 +5,7 @@
 // Stores and retrieves specific spending episodes
 // ============================================================================
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient as _createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * Get last week's spending by category

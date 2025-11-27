@@ -121,3 +121,14 @@ dist
 supabase/.temp
 
 .vercel
+
+# Debug and temporary files
+debug_log.txt
+*.log.txt
+env_backup*.txt
+
+# Local environment files (keep examples only)
+.env
+.env.local
+.env.staging
+.env.production

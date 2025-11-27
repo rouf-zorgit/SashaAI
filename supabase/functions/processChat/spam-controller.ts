@@ -5,7 +5,7 @@
 // Escalates irritation and stops responding after 3 spam messages
 // ============================================================================
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient as _createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 export interface SpamCheckResult {
     isSpam: boolean
@@ -161,7 +161,7 @@ function levenshteinDistance(str1: string, str2: string): number {
 /**
  * Generate escalating spam response
  */
-function generateSpamResponse(count: number, message: string): string {
+function generateSpamResponse(count: number, _message: string): string {
     switch (count) {
         case 2:
             return "You just said that. What's going on?"

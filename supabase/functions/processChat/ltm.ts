@@ -5,7 +5,7 @@
 // Prevents re-asking for salary, name, fixed costs, preferences
 // ============================================================================
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient as _createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * Extract salary information from message
