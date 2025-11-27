@@ -12,8 +12,8 @@ export const ENV = {
     anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
   },
 
-  openai: {
-    apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+  anthropic: {
+    apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
   },
 
   api: {

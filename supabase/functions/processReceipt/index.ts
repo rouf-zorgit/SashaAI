@@ -40,28 +40,38 @@ serve(async (req) => {
             )
         }
 
-        // Get OpenAI API key
-        const openaiKey = Deno.env.get('OPENAI_API_KEY')
-        if (!openaiKey) {
-            console.error('CRITICAL: OpenAI API key not found')
-            throw new Error('OpenAI API key not configured')
+        // Get Claude API key
+        const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
+        if (!anthropicKey) {
+            console.error('CRITICAL: Anthropic API key not found')
+            throw new Error('Anthropic API key not configured')
         }
 
         console.log('Processing receipt image...')
 
-        // Call OpenAI Vision API
-        const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        // Call Claude Vision API
+        const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${openaiKey}`,
-                'Content-Type': 'application/json',
+                'x-api-key': anthropicKey,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json',
             },
             body: JSON.stringify({
-                model: 'gpt-4o',
+                model: 'claude-3-5-sonnet-20240620',
+                max_tokens: 1024,
                 messages: [
                     {
                         role: 'user',
                         content: [
+                            {
+                                type: 'image',
+                                source: {
+                                    type: 'base64',
+                                    media_type: 'image/jpeg',
+                                    data: imageBase64
+                                }
+                            },
                             {
                                 type: 'text',
                                 text: `Analyze this receipt image and extract transaction information. Return ONLY valid JSON with this structure:
@@ -77,39 +87,34 @@ serve(async (req) => {
 If you cannot read the receipt clearly, return:
 {
   "error": "Could not read receipt clearly. Please try a clearer image."
-}`
-                            },
-                            {
-                                type: 'image_url',
-                                image_url: {
-                                    url: `data:image/jpeg;base64,${imageBase64}`
-                                }
+}
+
+IMPORTANT: Return ONLY the JSON object, no additional text or explanation.`
                             }
                         ]
                     }
                 ],
-                max_tokens: 500,
-                temperature: 0.3,
+                temperature: 0.3
             }),
         })
 
-        console.log('OpenAI Vision response status:', openaiResponse.status)
+        console.log('Claude Vision response status:', claudeResponse.status)
 
-        if (!openaiResponse.ok) {
-            const error = await openaiResponse.text()
-            console.error('OpenAI Vision API error:', error)
+        if (!claudeResponse.ok) {
+            const error = await claudeResponse.text()
+            console.error('Claude Vision API error:', error)
             throw new Error('Failed to process receipt image')
         }
 
-        const openaiData = await openaiResponse.json()
-        const content = openaiData.choices[0].message.content
+        const claudeData = await claudeResponse.json()
+        const content = claudeData.content[0].text
 
         // Parse the JSON response
         let parsedData
         try {
             parsedData = JSON.parse(content)
         } catch {
-            console.error('Failed to parse OpenAI response:', content)
+            console.error('Failed to parse Claude response:', content)
             throw new Error('Invalid response from AI')
         }
 

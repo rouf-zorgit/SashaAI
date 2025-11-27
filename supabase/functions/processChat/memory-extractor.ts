@@ -25,7 +25,7 @@ export interface MemoryCategory {
  */
 export async function extractEntities(
     message: string,
-    openaiKey: string,
+    anthropicKey: string,
     forceAi: boolean = false
 ): Promise<ExtractedEntity[]> {
     const entities: ExtractedEntity[] = []
@@ -139,9 +139,9 @@ export async function extractEntities(
     }
 
     // AI-based extraction for complex entities (or if forced)
-    if ((entities.length === 0 || forceAi) && openaiKey) {
+    if ((entities.length === 0 || forceAi) && anthropicKey) {
         try {
-            const aiEntities = await extractWithAI(message, openaiKey)
+            const aiEntities = await extractWithAI(message, anthropicKey)
 
             // If forcing AI, we might have duplicates if we ran regex too (but we skipped regex if forceAi is true)
             // So just push all
@@ -159,7 +159,7 @@ export async function extractEntities(
  */
 async function extractWithAI(
     message: string,
-    openaiKey: string
+    anthropicKey: string
 ): Promise<ExtractedEntity[]> {
     const prompt = `Extract structured information from this message. Return JSON array of entities.
 
@@ -173,32 +173,37 @@ Extract:
 - goal (what they want to achieve)
 
 Return format:
-[
-  {"type": "salary", "value": 50000, "confidence": 0.9},
-  {"type": "name", "value": "John", "confidence": 0.95}
-]
+{
+  "entities": [
+    {"type": "salary", "value": 50000, "confidence": 0.9},
+    {"type": "name", "value": "John", "confidence": 0.95}
+  ]
+}
 
-If nothing found, return []`
+If nothing found, return {"entities": []}
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+IMPORTANT: Return only valid JSON, no other text.`
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${openaiKey}`,
-            'Content-Type': 'application/json',
+            'x-api-key': anthropicKey,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
         },
         body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: 'claude-3-5-sonnet-20240620',
+            max_tokens: 512,
+            system: 'You are a precise entity extraction system. Return only valid JSON.',
             messages: [
-                { role: 'system', content: 'You are a precise entity extraction system. Return only valid JSON.' },
                 { role: 'user', content: prompt }
             ],
-            temperature: 0.1,
-            response_format: { type: "json_object" }
+            temperature: 0.1
         })
     })
 
     const data = await response.json()
-    const result = JSON.parse(data.choices[0].message.content)
+    const result = JSON.parse(data.content[0].text)
 
     return (result.entities || []).map((e: any) => ({
         ...e,
@@ -354,12 +359,12 @@ export async function autoSaveMemory(
 export async function extractFromMessage(
     message: string,
     userId: string,
-    openaiKey: string,
+    anthropicKey: string,
     supabaseClient: any,
     forceAi: boolean = false
 ): Promise<ExtractedEntity[]> {
     // Extract entities
-    const entities = await extractEntities(message, openaiKey, forceAi)
+    const entities = await extractEntities(message, anthropicKey, forceAi)
 
     if (entities.length === 0) {
         return []
