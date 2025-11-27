@@ -137,7 +137,7 @@ IMPORTANT: Return only valid JSON, no other text.`
                         'content-type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: 'claude-3-5-sonnet-20241022',
+                        model: 'claude-3-5-sonnet-20240620',
                         max_tokens: 512,
                         system: 'You are a precise STM analyzer. Return only valid JSON.',
                         messages: [
@@ -205,7 +205,7 @@ Return ONLY the summary, nothing else.`
                         'content-type': 'application/json',
                     },
                     body: JSON.stringify({
-                        model: 'claude-3-5-sonnet-20241022',
+                        model: 'claude-3-5-sonnet-20240620',
                         max_tokens: 50,
                         system: 'You are a concise summarizer. Return only the summary.',
                         messages: [
