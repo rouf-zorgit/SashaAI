@@ -4,6 +4,8 @@ import { ReportsClient } from '@/components/reports/ReportsClient'
 import { getProfile } from '@/lib/db/profiles'
 import { getMonthlyReport } from '@/lib/queries/reports'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ReportsPage() {
     try {
         const supabase = await createClient()
