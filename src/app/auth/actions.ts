@@ -62,7 +62,12 @@ export async function signup(formData: FormData) {
 
     // Create profile immediately if user is created
     if (data.user) {
-        await createProfileIfNotExists(supabase, data.user.id, email, fullName)
+        try {
+            await createProfileIfNotExists(supabase, data.user.id, email, fullName)
+        } catch (profileError: any) {
+            console.error('Profile creation error:', profileError)
+            return { error: 'Account created but profile failed: ' + profileError.message }
+        }
     }
 
     revalidatePath('/', 'layout')

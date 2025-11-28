@@ -24,7 +24,8 @@ async function checkHealth() {
             console.log('❌ Supabase returned error:', res.statusText)
         }
     } catch (err) {
-        console.error('❌ Fetch Failed:', err.cause || err)
+        const error = err as Error & { cause?: unknown }
+        console.error('❌ Fetch Failed:', error.cause || error)
     }
 }
 

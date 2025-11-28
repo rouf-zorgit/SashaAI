@@ -1,8 +1,8 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 import { Reminder } from '@/types/database'
 
 export async function getUserReminders(userId: string): Promise<Reminder[]> {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     const { data, error } = await supabase
         .from('reminders')
@@ -23,7 +23,7 @@ export async function createReminder(
         is_recurring: boolean
     }
 ) {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     const { data, error } = await supabase
         .from('reminders')
@@ -51,7 +51,7 @@ export async function createReminder(
 }
 
 export async function markReminderPaid(reminderId: string) {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     const { data, error } = await supabase
         .from('reminders')
@@ -65,7 +65,7 @@ export async function markReminderPaid(reminderId: string) {
 }
 
 export async function deleteReminder(reminderId: string) {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     const { error } = await supabase
         .from('reminders')

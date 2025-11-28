@@ -29,16 +29,28 @@ export function ChatMessage({ message }: ChatMessageProps) {
             {/* Message Content */}
             <div className={`flex flex-col max-w-[70%] ${isUser ? 'items-end' : 'items-start'}`}>
                 <Card className={`px-4 py-3 ${isUser
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted'
                     }`}>
                     <div className="prose prose-sm dark:prose-invert max-w-none">
                         <ReactMarkdown>{message.content}</ReactMarkdown>
                     </div>
                 </Card>
-                <span className="text-xs text-muted-foreground mt-1 px-1">
-                    {time}
-                </span>
+                <div className="flex items-center gap-2 mt-1 px-1">
+                    <span className="text-xs text-muted-foreground">
+                        {time}
+                    </span>
+                    {!isUser && message.intent && (
+                        <span className="text-xs bg-secondary px-1.5 py-0.5 rounded-full text-secondary-foreground flex items-center gap-1">
+                            {message.intent}
+                            {message.confidence && (
+                                <span className="opacity-70">
+                                    {Math.round(message.confidence * 100)}%
+                                </span>
+                            )}
+                        </span>
+                    )}
+                </div>
             </div>
         </div>
     )

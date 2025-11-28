@@ -31,8 +31,8 @@ export default async function ProfilePage() {
                 <ProfileHeader profile={{
                     full_name: profile.full_name,
                     email: profile.email,
-                    currency: profile.currency,
-                    monthly_salary: profile.monthly_salary
+                    currency: profile.currency || 'USD',
+                    monthly_salary: profile.monthly_salary || 0
                 }} />
 
                 <div>
@@ -41,7 +41,7 @@ export default async function ProfilePage() {
                         income={stats.income}
                         expenses={stats.expenses}
                         balance={stats.balance}
-                        currency={profile.currency}
+                        currency={profile.currency || 'USD'}
                     />
                 </div>
 

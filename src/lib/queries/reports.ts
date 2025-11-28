@@ -1,11 +1,11 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 
 export async function getMonthlyReport(
     userId: string,
     year: number,
     month: number
 ) {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0]
     const endDate = new Date(year, month, 0).toISOString().split('T')[0]
@@ -59,7 +59,7 @@ export async function getMonthlyReport(
 }
 
 export async function getYearlyTrend(userId: string, year: number) {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     const startDate = `${year}-01-01`
     const endDate = `${year}-12-31`

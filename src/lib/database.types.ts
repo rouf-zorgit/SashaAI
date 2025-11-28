@@ -103,6 +103,143 @@ export interface Database {
                     deleted_at?: string | null
                 }
             }
+            messages: {
+                Row: {
+                    id: string
+                    user_id: string
+                    session_id: string
+                    role: 'user' | 'assistant' | 'system'
+                    content: string
+                    intent: string | null
+                    confidence: number | null
+                    metadata: Json | null
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    session_id: string
+                    role: 'user' | 'assistant' | 'system'
+                    content: string
+                    intent?: string | null
+                    confidence?: number | null
+                    metadata?: Json | null
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    session_id?: string
+                    role?: 'user' | 'assistant' | 'system'
+                    content?: string
+                    intent?: string | null
+                    confidence?: number | null
+                    metadata?: Json | null
+                    created_at?: string
+                }
+            }
+            goals: {
+                Row: {
+                    id: string
+                    user_id: string
+                    title: string
+                    target_amount: number
+                    current_amount: number
+                    deadline: string | null
+                    category: string
+                    is_completed: boolean
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    title: string
+                    target_amount: number
+                    current_amount?: number
+                    deadline?: string | null
+                    category?: string
+                    is_completed?: boolean
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    title?: string
+                    target_amount?: number
+                    current_amount?: number
+                    deadline?: string | null
+                    category?: string
+                    is_completed?: boolean
+                    created_at?: string
+                    updated_at?: string
+                }
+            }
+            notifications: {
+                Row: {
+                    id: string
+                    user_id: string
+                    type: 'reminder' | 'alert' | 'milestone' | 'transaction'
+                    title: string
+                    message: string | null
+                    related_id: string | null
+                    is_read: boolean
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    type: 'reminder' | 'alert' | 'milestone' | 'transaction'
+                    title: string
+                    message?: string | null
+                    related_id?: string | null
+                    is_read?: boolean
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    type?: 'reminder' | 'alert' | 'milestone' | 'transaction'
+                    title?: string
+                    message?: string | null
+                    related_id?: string | null
+                    is_read?: boolean
+                    created_at?: string
+                }
+            }
+            reminders: {
+                Row: {
+                    id: string
+                    user_id: string
+                    title: string
+                    amount: number | null
+                    due_date: string
+                    is_recurring: boolean
+                    is_paid: boolean
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    title: string
+                    amount?: number | null
+                    due_date: string
+                    is_recurring?: boolean
+                    is_paid?: boolean
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    title?: string
+                    amount?: number | null
+                    due_date?: string
+                    is_recurring?: boolean
+                    is_paid?: boolean
+                    created_at?: string
+                }
+            }
             recurring_rules: {
                 Row: {
                     id: string
@@ -172,6 +309,8 @@ export interface Database {
             transaction_type: 'income' | 'expense' | 'adjustment'
             recurring_cycle: 'daily' | 'weekly' | 'monthly' | 'yearly'
             subscription_plan: 'free' | 'six_month' | 'three_month' | 'monthly'
+            notification_type: 'reminder' | 'alert' | 'milestone' | 'transaction'
+            message_role: 'user' | 'assistant' | 'system'
         }
     }
 }

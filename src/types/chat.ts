@@ -3,6 +3,9 @@ export interface Message {
     user_id: string
     role: 'user' | 'assistant' | 'system'
     content: string
+    intent?: string | null
+    confidence?: number | null
+    metadata?: any
     created_at: string
 }
 

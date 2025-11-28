@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 import { Notification } from '@/types/database'
 
 export async function getTransactionsWithFilters(
@@ -13,13 +13,13 @@ export async function getTransactionsWithFilters(
         offset?: number
     }
 ) {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     let query = supabase
         .from('transactions')
         .select('*')
         .eq('user_id', userId)
-        .order('date', { ascending: false })
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
 
     if (filters.type) {
@@ -35,11 +35,11 @@ export async function getTransactionsWithFilters(
     }
 
     if (filters.startDate) {
-        query = query.gte('date', filters.startDate)
+        query = query.gte('created_at', filters.startDate)
     }
 
     if (filters.endDate) {
-        query = query.lte('date', filters.endDate)
+        query = query.lte('created_at', filters.endDate)
     }
 
     if (filters.limit) {
@@ -60,7 +60,7 @@ export async function getTransactionsWithFilters(
 }
 
 export async function getNotifications(userId: string, onlyUnread = false): Promise<Notification[]> {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     let query = supabase
         .from('notifications')
@@ -79,7 +79,7 @@ export async function getNotifications(userId: string, onlyUnread = false): Prom
 }
 
 export async function markNotificationRead(notificationId: string) {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     const { error } = await supabase
         .from('notifications')
@@ -90,7 +90,7 @@ export async function markNotificationRead(notificationId: string) {
 }
 
 export async function markAllNotificationsRead(userId: string) {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     const { error } = await supabase
         .from('notifications')

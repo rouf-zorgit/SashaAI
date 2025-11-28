@@ -12,7 +12,9 @@ import { ChatInput } from '@/components/custom/ChatInput'
 import { TypingIndicator } from '@/components/custom/TypingIndicator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
-import { Loader2, LogOut, MessageSquare } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Brain, Zap, Loader2, LogOut, MessageSquare } from 'lucide-react'
 import { signout } from '@/app/auth/actions'
 import { toast } from 'sonner'
 import type { Message } from '@/types/chat'
@@ -32,6 +34,7 @@ export default function ChatPage() {
     } = useChatStore()
 
     const [initialLoading, setInitialLoading] = useState(true)
+    const [mode, setMode] = useState<'fast' | 'deep'>('fast')
     const scrollAreaRef = useRef<HTMLDivElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const supabase = createClient()
@@ -92,7 +95,8 @@ export default function ChatPage() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    messages: conversationHistory
+                    messages: conversationHistory,
+                    mode // Pass selected mode
                 }),
             })
 
@@ -204,12 +208,26 @@ export default function ChatPage() {
                             <p className="text-xs text-muted-foreground">Your AI Finance Assistant</p>
                         </div>
                     </div>
-                    <form action={signout}>
-                        <Button variant="ghost" size="sm" type="submit">
-                            <LogOut className="h-4 w-4 mr-2" />
-                            Sign Out
-                        </Button>
-                    </form>
+
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="mode-toggle" className="text-xs font-medium flex items-center gap-1">
+                                {mode === 'fast' ? <Zap className="h-3 w-3 text-yellow-500" /> : <Brain className="h-3 w-3 text-purple-500" />}
+                                {mode === 'fast' ? 'Fast' : 'Deep'}
+                            </Label>
+                            <Switch
+                                id="mode-toggle"
+                                checked={mode === 'deep'}
+                                onCheckedChange={(checked) => setMode(checked ? 'deep' : 'fast')}
+                            />
+                        </div>
+                        <form action={signout}>
+                            <Button variant="ghost" size="sm" type="submit">
+                                <LogOut className="h-4 w-4 mr-2" />
+                                Sign Out
+                            </Button>
+                        </form>
+                    </div>
                 </div>
             </div>
 

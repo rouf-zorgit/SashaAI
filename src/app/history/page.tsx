@@ -112,6 +112,7 @@ export default function HistoryPage() {
                                         key={transaction.id}
                                         transaction={transaction}
                                         currency={profile?.currency || 'USD'}
+                                        onDelete={loadData}
                                     />
                                 ))}
                             </div>
