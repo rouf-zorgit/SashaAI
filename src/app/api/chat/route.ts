@@ -2,35 +2,63 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest } from 'next/server'
 
-const SASHA_SYSTEM_PROMPT = `You are Sasha, a friendly and helpful AI finance assistant. Your role is to help users track their income and expenses through natural conversation.
+const SASHA_SYSTEM_PROMPT = `You are Sasha, a friendly AI finance assistant. Be BRIEF and casual.
 
-**Your Personality:**
-- Warm, encouraging, and supportive
-- Use casual, friendly language
-- Celebrate financial wins with users
-- Be empathetic about financial challenges
+CRITICAL: When user mentions spending or earning money, you MUST include a transaction marker in your response.
 
-**Transaction Detection:**
-When users mention spending or earning money, help them track it. If you detect a transaction, include it at the end of your response in this exact format:
+FORMAT:
+[TRANSACTION: amount=500, category=dining, type=expense, description=lunch today]
 
-[TRANSACTION: amount=50, category=groceries, type=expense, description=weekly shopping]
+CATEGORIES:
+- groceries, transport, entertainment, bills, shopping, food, dining, health, other
+- For income: use category=income
 
-**Categories:** groceries, transport, entertainment, bills, shopping, food, health, dining, salary, freelance, investment, gift, other
+TYPES:
+- expense (for spending)
+- income (for earning)
 
-**Types:** income or expense
+EXAMPLES:
 
-**Examples:**
-User: "I spent $50 on groceries today"
-You: "Got it! I've logged your $50 grocery expense. That's great that you're keeping track of your spending! [TRANSACTION: amount=50, category=groceries, type=expense, description=grocery shopping]"
+User: "I spent 500 on lunch"
+Your response: "Logged ৳500 for lunch! 🍽️ [TRANSACTION: amount=500, category=dining, type=expense, description=lunch]"
 
-User: "Got paid $3000 this month"
-You: "Awesome! Congratulations on your paycheck! I've recorded your $3000 income. [TRANSACTION: amount=3000, category=salary, type=income, description=monthly salary]"
+User: "Paid 2000 for electricity bill"
+Your response: "Got it! ৳2000 for electricity 💡 [TRANSACTION: amount=2000, category=bills, type=expense, description=electricity bill]"
 
-**Important:**
-- Only include [TRANSACTION: ...] when there's a clear financial transaction
-- Always be conversational and friendly first
-- If unclear, ask for clarification
-- Help users understand their spending patterns`
+User: "Got my salary 50000"
+Your response: "Nice! ৳50,000 income logged 💰 [TRANSACTION: amount=50000, category=income, type=income, description=monthly salary]"
+
+User: "Bought groceries for 1500"
+Your response: "Logged ৳1500 for groceries 🛒 [TRANSACTION: amount=1500, category=groceries, type=expense, description=groceries]"
+
+IMPORTANT:
+- ALWAYS include the [TRANSACTION:...] marker when logging expenses/income
+- The marker can be anywhere in your response
+- Keep the user-visible part brief and friendly
+- The marker will be hidden from the user
+`
+
+function extractTransaction(aiResponse: string): any {
+    console.log('🔍 Checking response for [TRANSACTION:...');
+
+    // Look for [TRANSACTION: amount=X, category=Y, type=Z, description=W]
+    const regex = /\[TRANSACTION:\s*amount=([0-9.]+),\s*category=(\w+),\s*type=(\w+),\s*description=([^\]]+)\]/;
+    const match = aiResponse.match(regex);
+
+    if (!match) {
+        console.log('⚠️ No [TRANSACTION:...] marker found in response');
+        return null;
+    }
+
+    console.log('✅ Transaction marker found!');
+
+    return {
+        amount: parseFloat(match[1]),
+        category: match[2],
+        type: match[3],
+        description: match[4].trim(),
+    };
+}
 
 export async function POST(request: NextRequest) {
     console.log('🚀 Chat API: Request received')
@@ -132,6 +160,45 @@ export async function POST(request: NextRequest) {
         const contentBlock = response.content[0]
         const fullResponse = contentBlock.type === 'text' ? contentBlock.text : ''
 
+        console.log('🔍 AI Response:', fullResponse);
+        console.log('🔍 Attempting to extract transaction...');
+
+        const transaction = extractTransaction(fullResponse);
+
+        console.log('🔍 Extracted transaction:', transaction);
+
+        if (transaction) {
+            console.log('� Saving transaction to database...');
+            console.log('💾 Transaction data:', JSON.stringify(transaction, null, 2));
+
+            const { data: savedTx, error: txError } = await supabase
+                .from('transactions')
+                .insert({
+                    user_id: user.id,
+                    amount: transaction.amount,
+                    category: transaction.category,
+                    type: transaction.type,
+                    description: transaction.description,
+                    date: new Date().toISOString().split('T')[0],
+                })
+                .select()
+                .single();
+
+            if (txError) {
+                console.error('❌ TRANSACTION SAVE FAILED:', txError);
+                console.error('❌ Error code:', txError.code);
+                console.error('❌ Error message:', txError.message);
+                console.error('❌ Error details:', JSON.stringify(txError, null, 2));
+            } else {
+                console.log('✅ TRANSACTION SAVED SUCCESSFULLY:', savedTx);
+            }
+        } else {
+            console.log('⚠️ No transaction found in AI response');
+        }
+
+        // Then save assistant message (without the [TRANSACTION] marker visible to user)
+        const cleanResponse = fullResponse.replace(/\[TRANSACTION:[^\]]+\]/g, '').trim();
+
         // CRITICAL: Save assistant message to database
         console.log('💾 Chat API: Saving assistant message...')
         const { error: assistantMessageError } = await supabase
@@ -140,7 +207,7 @@ export async function POST(request: NextRequest) {
                 user_id: user.id,
                 session_id: currentSessionId,
                 role: 'assistant',
-                content: fullResponse,
+                content: cleanResponse,
                 created_at: new Date().toISOString(),
             })
 
@@ -153,8 +220,9 @@ export async function POST(request: NextRequest) {
         // Return response to client
         return new Response(
             JSON.stringify({
-                message: fullResponse,
+                message: cleanResponse,
                 sessionId: currentSessionId,
+                transaction: transaction, // Send transaction info for toast notification
             }),
             { headers: { 'Content-Type': 'application/json' } }
         )

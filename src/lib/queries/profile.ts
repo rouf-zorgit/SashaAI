@@ -15,8 +15,8 @@ export async function getProfileStats(userId: string) {
         .select('amount, type')
         .eq('user_id', userId)
         .is('deleted_at', null)
-        .gte('created_at', startOfMonth)
-        .lte('created_at', endOfMonth)
+        .gte('date', startOfMonth)
+        .lte('date', endOfMonth)
 
     const income = transactions
         ?.filter(t => t.type === 'income')
