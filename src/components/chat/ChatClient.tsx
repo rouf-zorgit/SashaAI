@@ -1,194 +1,149 @@
 "use client"
 
-import { useEffect, useRef, useState } from 'react'
-import { useChatStore } from '@/store/chat-store'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { saveTransaction } from '@/lib/db/transactions'
-import { parseTransaction, removeTransactionTag } from '@/lib/ai/parse-transaction'
 import { ChatMessage } from '@/components/custom/ChatMessage'
 import { ChatInput } from '@/components/custom/ChatInput'
-import { TypingIndicator } from '@/components/custom/TypingIndicator'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { Brain, Zap, LogOut, MessageSquare } from 'lucide-react'
-import { signout } from '@/app/auth/actions'
+import { LogOut } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Message } from '@/types/chat'
-import type { User } from '@supabase/supabase-js'
+import { signout } from '@/app/auth/actions'
+import { Message } from '@/types/chat'
+import { User } from '@supabase/supabase-js'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface ChatClientProps {
     initialMessages: Message[]
     user: User
+    currency?: string
 }
 
-export function ChatClient({ initialMessages, user }: ChatClientProps) {
-    const {
-        messages,
-        isLoading,
-        streamingMessage,
-        setMessages,
-        addMessage,
-        setIsLoading,
-        setStreamingMessage,
-        appendToStreamingMessage,
-        clearStreamingMessage
-    } = useChatStore()
+export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClientProps) {
+    console.log('🏗️ ChatClient rendered')
+    console.log('📥 Initial messages received:', initialMessages.length)
 
-    const [mode, setMode] = useState<'fast' | 'deep'>('fast')
+    // Initialize with messages from database
+    const [messages, setMessages] = useState<Message[]>(initialMessages)
+    const [isLoading, setIsLoading] = useState(false)
+    const [sessionId, setSessionId] = useState<string | null>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
-    const supabase = createClient()
 
-    // Initialize messages from server prop
+    // Scroll to bottom when messages change
     useEffect(() => {
-        setMessages(initialMessages)
-    }, [initialMessages, setMessages])
-
-    // Auto-scroll to bottom when messages change
-    useEffect(() => {
-        scrollToBottom()
-    }, [messages, streamingMessage])
-
-    const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
+        console.log('📜 Scrolled to bottom, message count:', messages.length)
+    }, [messages])
+
+    // Sync state with database messages on mount
+    useEffect(() => {
+        console.log('🔄 Syncing initial messages to state')
+        setMessages(initialMessages)
+
+        // Get latest session ID from messages
+        if (initialMessages.length > 0) {
+            const latestMessage = initialMessages[initialMessages.length - 1]
+            // @ts-ignore
+            if (latestMessage.session_id) {
+                // @ts-ignore
+                const sid = latestMessage.session_id
+                console.log('🆔 Found existing session ID:', sid)
+                setSessionId(sid)
+            }
+        }
+    }, [initialMessages])
 
     const handleSendMessage = async (content: string) => {
-        if (!user || !content.trim()) return
+        if (!content.trim()) return
 
-        setIsLoading(true)
-        clearStreamingMessage()
+        console.log('📤 Sending message:', content)
 
-        // Optimistic update: Show user message immediately
-        const tempId = crypto.randomUUID()
-        const optimisticMessage: Message = {
-            id: tempId,
+        // Add user message to UI immediately (optimistic update)
+        const tempUserMessage: Message = {
+            id: `temp-${Date.now()}`,
             user_id: user.id,
             role: 'user',
-            content: content,
-            created_at: new Date().toISOString()
+            content,
+            created_at: new Date().toISOString(),
+            // @ts-ignore
+            session_id: sessionId || ''
         }
-        addMessage(optimisticMessage)
+
+        setMessages(prev => {
+            const newMessages = [...prev, tempUserMessage]
+            console.log('➕ Added optimistic user message, count:', newMessages.length)
+            return newMessages
+        })
+        setIsLoading(true)
 
         try {
-            // Prepare messages for API
-            const conversationHistory = messages.map(msg => ({
-                role: msg.role as 'user' | 'assistant',
-                content: msg.content
-            }))
-
-            conversationHistory.push({
-                role: 'user',
-                content: content
-            })
-
-            // Call streaming API
+            console.log('🌐 Calling Chat API...')
+            // Send to API
             const response = await fetch('/api/chat', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages: conversationHistory,
-                    mode // Pass selected mode
+                    messages: [
+                        ...messages.map(m => ({ role: m.role, content: m.content })),
+                        { role: 'user', content }
+                    ],
+                    mode: 'fast',
+                    sessionId,
                 }),
             })
 
+            console.log('📡 API Response status:', response.status)
+
             if (!response.ok) {
-                let errorMessage = 'Failed to get response from Sasha'
-                try {
-                    const text = await response.text()
-                    try {
-                        const errorData = JSON.parse(text)
-                        errorMessage = errorData.error || errorMessage
-                    } catch {
-                        console.error('Failed to parse error JSON:', text)
-                        errorMessage = `Server Error (${response.status}): ${text.slice(0, 100)}`
-                    }
-                } catch (e) {
-                    console.error('Failed to read response text')
-                }
-                throw new Error(errorMessage)
+                const errorData = await response.json().catch(() => ({}))
+                console.error('❌ API Error Data:', errorData)
+                throw new Error(errorData.error || `HTTP Error ${response.status}`)
             }
 
-            // Handle streaming response
-            const reader = response.body?.getReader()
-            const decoder = new TextDecoder()
-            let fullResponse = ''
+            const data = await response.json()
+            console.log('📦 API Response data received:', data)
 
-            if (reader) {
-                while (true) {
-                    const { done, value } = await reader.read()
-                    if (done) break
-
-                    const chunk = decoder.decode(value)
-                    const lines = chunk.split('\n')
-
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = JSON.parse(line.slice(6))
-
-                            if (data.text) {
-                                fullResponse += data.text
-                                appendToStreamingMessage(data.text)
-                            }
-
-                            if (data.done) {
-                                // Parse transaction from response
-                                const transaction = parseTransaction(fullResponse)
-
-                                // Remove transaction tag from display
-                                const cleanContent = removeTransactionTag(fullResponse)
-
-                                // Add assistant message to store (using ID from server if available)
-                                const assistantMessage: Message = {
-                                    id: data.messageId || crypto.randomUUID(),
-                                    user_id: user.id,
-                                    role: 'assistant',
-                                    content: cleanContent,
-                                    created_at: new Date().toISOString()
-                                }
-                                addMessage(assistantMessage)
-
-                                // Save transaction if detected
-                                if (transaction && data.messageId) {
-                                    try {
-                                        await saveTransaction(supabase, user.id, {
-                                            ...transaction,
-                                            message_id: data.messageId
-                                        })
-
-                                        // Show success toast
-                                        const emoji = transaction.type === 'income' ? '💰' : '💸'
-                                        toast.success(
-                                            `${emoji} Logged $${transaction.amount} for ${transaction.category}`,
-                                            {
-                                                description: transaction.description
-                                            }
-                                        )
-                                    } catch (error) {
-                                        console.error('Error saving transaction:', error)
-                                        toast.error('Failed to save transaction')
-                                    }
-                                }
-
-                                clearStreamingMessage()
-                            }
-
-                            if (data.error) {
-                                console.error('Streaming error:', data.error)
-                                toast.error(data.error)
-                            }
-                        }
-                    }
-                }
+            // Update session ID if new
+            if (data.sessionId && !sessionId) {
+                console.log('🆔 New session ID set:', data.sessionId)
+                setSessionId(data.sessionId)
             }
+
+            // Add assistant message to UI
+            const assistantMessage: Message = {
+                id: `temp-assistant-${Date.now()}`,
+                user_id: user.id,
+                role: 'assistant',
+                content: data.message,
+                created_at: new Date().toISOString(),
+                // @ts-ignore
+                session_id: data.sessionId || sessionId || ''
+            }
+
+            setMessages(prev => {
+                const newMessages = [...prev, assistantMessage]
+                console.log('➕ Added assistant message, count:', newMessages.length)
+                return newMessages
+            })
+
+            // Check for transaction extraction
+            // @ts-ignore
+            if (data.transaction) {
+                console.log('💰 Transaction detected:', data.transaction)
+                toast.success('Transaction logged!')
+            }
+
         } catch (error) {
-            console.error('Error sending message:', error)
-            toast.error(error instanceof Error ? error.message : 'Failed to send message. Please try again.')
+            console.error('❌ Error sending message:', error)
+            toast.error('Failed to send message. Please try again.')
+
+            // Remove optimistic user message on error
+            setMessages(prev => {
+                console.log('➖ Removing failed optimistic message')
+                return prev.filter(m => m.id !== tempUserMessage.id)
+            })
         } finally {
             setIsLoading(false)
+            console.log('🏁 Message processing complete')
         }
     }
 
@@ -198,8 +153,12 @@ export function ChatClient({ initialMessages, user }: ChatClientProps) {
             <div className="flex-shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <div className="flex items-center justify-between p-4 max-w-4xl mx-auto">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-                            <MessageSquare className="w-6 h-6 text-primary-foreground" />
+                        <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20">
+                            <img
+                                src="/sasha.jpg"
+                                alt="Sasha"
+                                className="w-full h-full object-cover"
+                            />
                         </div>
                         <div>
                             <h1 className="text-xl font-bold">Sasha</h1>
@@ -208,17 +167,6 @@ export function ChatClient({ initialMessages, user }: ChatClientProps) {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <Label htmlFor="mode-toggle" className="text-xs font-medium flex items-center gap-1">
-                                {mode === 'fast' ? <Zap className="h-3 w-3 text-yellow-500" /> : <Brain className="h-3 w-3 text-purple-500" />}
-                                {mode === 'fast' ? 'Fast' : 'Deep'}
-                            </Label>
-                            <Switch
-                                id="mode-toggle"
-                                checked={mode === 'deep'}
-                                onCheckedChange={(checked) => setMode(checked ? 'deep' : 'fast')}
-                            />
-                        </div>
                         <form action={signout}>
                             <Button variant="ghost" size="sm" type="submit" className="cursor-pointer">
                                 <LogOut className="h-4 w-4 mr-2" />
@@ -232,9 +180,8 @@ export function ChatClient({ initialMessages, user }: ChatClientProps) {
             {/* Messages */}
             <ScrollArea className="flex-1 min-h-0">
                 <div className="p-4 max-w-4xl mx-auto">
-                    {messages.length === 0 && !streamingMessage && (
+                    {messages.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                            <MessageSquare className="h-16 w-16 text-muted-foreground/50 mb-4" />
                             <h2 className="text-2xl font-bold mb-2">Welcome to Sasha! 👋</h2>
                             <p className="text-muted-foreground max-w-md">
                                 I'm your AI finance assistant. Tell me about your expenses and income,
@@ -249,25 +196,20 @@ export function ChatClient({ initialMessages, user }: ChatClientProps) {
                                 </ul>
                             </div>
                         </div>
+                    ) : (
+                        messages.map((message) => (
+                            <ChatMessage
+                                key={message.id}
+                                message={message}
+                            />
+                        ))
                     )}
 
-                    {messages.map((message) => (
-                        <ChatMessage key={message.id} message={message} />
-                    ))}
-
-                    {streamingMessage && (
-                        <ChatMessage
-                            message={{
-                                id: 'streaming',
-                                user_id: user.id,
-                                role: 'assistant',
-                                content: removeTransactionTag(streamingMessage),
-                                created_at: new Date().toISOString()
-                            }}
-                        />
+                    {isLoading && (
+                        <div className="flex items-center gap-2 text-muted-foreground p-4">
+                            <div className="animate-pulse">Sasha is typing...</div>
+                        </div>
                     )}
-
-                    {isLoading && !streamingMessage && <TypingIndicator />}
 
                     <div ref={messagesEndRef} />
                 </div>

@@ -1,13 +1,30 @@
+const CURRENCY_SYMBOLS: Record<string, string> = {
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+    BDT: '৳',
+    INR: '₹',
+    JPY: '¥',
+    CNY: '¥',
+    AUD: 'A$',
+    CAD: 'C$',
+    CHF: 'Fr',
+}
+
+export function getCurrencySymbol(currencyCode: string): string {
+    return CURRENCY_SYMBOLS[currencyCode] || currencyCode
+}
+
 export function formatCurrency(
     amount: number,
     currency: string = 'USD'
 ): string {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: currency,
+    const symbol = getCurrencySymbol(currency)
+
+    return `${symbol}${amount.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-    }).format(amount)
+    })}`
 }
 
 export function formatCompactNumber(num: number): string {

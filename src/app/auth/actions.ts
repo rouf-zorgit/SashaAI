@@ -105,16 +105,18 @@ export async function completeOnboarding(formData: FormData) {
 
     const fullName = formData.get('fullName') as string
     const currency = formData.get('currency') as string
+    const country = formData.get('country') as string
     const monthlySalary = formData.get('monthlySalary') ? Number(formData.get('monthlySalary')) : null
     const primaryGoal = formData.get('primaryGoal') as string
 
-    console.log('Onboarding data:', { fullName, currency, monthlySalary, primaryGoal, userId: user.id })
+    console.log('Onboarding data:', { fullName, currency, country, monthlySalary, primaryGoal, userId: user.id })
 
     const { error } = await supabase
         .from('profiles')
         .update({
             full_name: fullName,
             currency,
+            country,
             monthly_salary: monthlySalary,
             primary_goal: primaryGoal,
             onboarding_completed: true

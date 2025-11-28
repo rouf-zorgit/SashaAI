@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { markNotificationRead, markAllNotificationsRead, getTransactionsWithFilters } from '@/lib/queries/history'
 import { TransactionRow } from '@/components/history/TransactionRow'
 import { NotificationCard } from '@/components/history/NotificationCard'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
@@ -24,6 +25,8 @@ export function HistoryClient({ initialTransactions, initialNotifications, user,
     const [notifications, setNotifications] = useState<any[]>(initialNotifications)
     const [search, setSearch] = useState('')
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const typeFilter = searchParams.get('type') // 'income' or 'expense'
 
     const refreshData = async () => {
         try {
@@ -58,12 +61,25 @@ export function HistoryClient({ initialTransactions, initialNotifications, user,
         }
     }
 
-    const filteredTransactions = transactions.filter(t =>
-        t.description.toLowerCase().includes(search.toLowerCase()) ||
-        t.category.toLowerCase().includes(search.toLowerCase())
-    )
+    const filteredTransactions = transactions.filter(t => {
+        // Apply type filter from URL
+        if (typeFilter && t.type !== typeFilter) return false
+
+        // Apply search filter
+        if (search && !(
+            t.description.toLowerCase().includes(search.toLowerCase()) ||
+            t.category.toLowerCase().includes(search.toLowerCase())
+        )) return false
+
+        return true
+    })
 
     const unreadCount = notifications.filter(n => !n.is_read).length
+
+    const clearFilters = () => {
+        setSearch('')
+        router.push('/history')
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-background to-muted p-4 md:p-8">
@@ -81,15 +97,29 @@ export function HistoryClient({ initialTransactions, initialNotifications, user,
                     </TabsList>
 
                     <TabsContent value="transactions" className="space-y-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search transactions..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="pl-10"
-                            />
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Search transactions..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    className="pl-10"
+                                />
+                            </div>
+                            {(typeFilter || search) && (
+                                <Button variant="outline" onClick={clearFilters}>
+                                    <X className="h-4 w-4 mr-2" />
+                                    Clear Filters
+                                </Button>
+                            )}
                         </div>
+
+                        {typeFilter && (
+                            <div className="text-sm text-muted-foreground">
+                                Showing {typeFilter} transactions
+                            </div>
+                        )}
 
                         {filteredTransactions.length > 0 ? (
                             <div className="space-y-2">

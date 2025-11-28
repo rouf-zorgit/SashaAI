@@ -19,12 +19,12 @@ export default async function HistoryPage() {
         const currency = profile?.currency || 'USD'
 
         // Fetch transactions
-        const { data: transactions, error: txError } = await supabase
+        const { data: rawTransactions, error: txError } = await supabase
             .from('transactions')
             .select('*')
             .eq('user_id', user.id)
             .is('deleted_at', null)
-            .order('date', { ascending: false })
+            .order('created_at', { ascending: false })
             .limit(100)
 
         // Fetch notifications
@@ -39,9 +39,15 @@ export default async function HistoryPage() {
         if (txError) console.error('Transactions error:', JSON.stringify(txError, null, 2))
         if (notifError) console.error('Notifications error:', JSON.stringify(notifError, null, 2))
 
+        // Map transactions to ensure date property exists (fallback to created_at)
+        const transactions = rawTransactions?.map(t => ({
+            ...t,
+            date: t.date || t.created_at
+        })) || []
+
         return (
             <HistoryClient
-                initialTransactions={transactions || []}
+                initialTransactions={transactions}
                 initialNotifications={notifications || []}
                 user={user}
                 currency={currency}

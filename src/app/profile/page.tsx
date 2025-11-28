@@ -31,10 +31,12 @@ export default async function ProfilePage() {
                 <h1 className="text-3xl font-bold">Profile</h1>
 
                 <ProfileHeader profile={{
+                    id: user.id,
                     full_name: profile.full_name,
                     email: profile.email,
                     currency: profile.currency || 'USD',
-                    monthly_salary: profile.monthly_salary || 0
+                    monthly_salary: profile.monthly_salary || 0,
+                    avatar_url: profile.avatar_url
                 }} />
 
                 <div>
@@ -47,9 +49,9 @@ export default async function ProfilePage() {
                     />
                 </div>
 
-                <div>
+                <div className="space-y-4">
                     <h2 className="text-lg font-semibold mb-3">Menu</h2>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         <MenuCard
                             icon="🎯"
                             title="Goals"
@@ -78,8 +80,8 @@ export default async function ProfilePage() {
                 </div>
 
                 <form action={signout} className="pt-4">
-                    <Button variant="destructive" className="w-full cursor-pointer" type="submit">
-                        🚪 Sign Out
+                    <Button variant="destructive" className="w-full bg-red-600 hover:bg-red-700 cursor-pointer" type="submit">
+                        Sign Out
                     </Button>
                 </form>
             </div>

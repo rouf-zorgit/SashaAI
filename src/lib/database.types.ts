@@ -16,6 +16,7 @@ export interface Database {
                     full_name: string | null
                     monthly_salary: number | null
                     currency: string | null
+                    country: string | null
                     fixed_costs: number | null
                     primary_goal: string | null
                     communication_style: string | null
@@ -30,6 +31,7 @@ export interface Database {
                     full_name?: string | null
                     monthly_salary?: number | null
                     currency?: string | null
+                    country?: string | null
                     fixed_costs?: number | null
                     primary_goal?: string | null
                     communication_style?: string | null
@@ -44,6 +46,7 @@ export interface Database {
                     full_name?: string | null
                     monthly_salary?: number | null
                     currency?: string | null
+                    country?: string | null
                     fixed_costs?: number | null
                     primary_goal?: string | null
                     communication_style?: string | null

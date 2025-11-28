@@ -14,6 +14,7 @@ export async function getProfileStats(userId: string) {
         .from('transactions')
         .select('amount, type')
         .eq('user_id', userId)
+        .is('deleted_at', null)
         .gte('created_at', startOfMonth)
         .lte('created_at', endOfMonth)
 

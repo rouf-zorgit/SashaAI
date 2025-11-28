@@ -6,29 +6,48 @@ export const dynamic = 'force-dynamic'
 
 export default async function ChatPage() {
     try {
+        console.log('🏗️ Chat Page: Rendering...')
         const supabase = await createClient()
         const { data: { user }, error: authError } = await supabase.auth.getUser()
 
         if (authError || !user) {
+            console.log('❌ Chat Page: Unauthorized, redirecting to login')
             redirect('/login')
         }
+        console.log('👤 Chat Page: User authenticated', user.id)
 
+        // CRITICAL: Load ALL messages for this user from database
+        console.log('📥 Chat Page: Loading messages for user', user.id)
         const { data: messages, error: messagesError } = await supabase
             .from('messages')
             .select('*')
             .eq('user_id', user.id)
-            .order('created_at', { ascending: true })
-            .limit(50)
+            .order('created_at', { ascending: true });
 
         if (messagesError) {
-            console.error('Messages error:', messagesError)
-            return <ChatClient initialMessages={[]} user={user} />
+            console.error('❌ Chat Page: Error loading messages', messagesError)
+        } else {
+            console.log(`✅ Chat Page: Loaded ${messages?.length || 0} messages`)
         }
 
-        return <ChatClient initialMessages={messages || []} user={user} />
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('avatar_url, currency')
+            .eq('id', user.id)
+            .single()
+
+        return (
+            <div className="h-[calc(100vh-4rem)]">
+                <ChatClient
+                    initialMessages={messages || []}
+                    user={user}
+                    currency={profile?.currency || 'USD'}
+                />
+            </div>
+        )
 
     } catch (error) {
-        console.error('Chat page error:', error)
+        console.error('❌ Chat Page: Unexpected error:', error)
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <div className="text-center">

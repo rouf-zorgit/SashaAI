@@ -56,7 +56,10 @@ export async function getTransactionsWithFilters(
     const { data, error } = await query
 
     if (error) throw error
-    return data || []
+    return data?.map((t: any) => ({
+        ...t,
+        date: t.date || t.created_at
+    })) || []
 }
 
 export async function getNotifications(userId: string, onlyUnread = false): Promise<Notification[]> {

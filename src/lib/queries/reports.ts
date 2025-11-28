@@ -14,8 +14,8 @@ export async function getMonthlyReport(
         .from('transactions')
         .select('*')
         .eq('user_id', userId)
-        .gte('date', startDate)
-        .lte('date', endDate)
+        .gte('created_at', startDate)
+        .lte('created_at', endDate)
 
     if (!transactions) return null
 
@@ -81,7 +81,8 @@ export async function getYearlyTrend(userId: string, year: number) {
     }))
 
     transactions.forEach(t => {
-        const monthIndex = new Date(t.date).getMonth()
+        const dateStr = t.date || t.created_at
+        const monthIndex = new Date(dateStr).getMonth()
         if (t.type === 'income') {
             byMonth[monthIndex].income += Number(t.amount)
         } else {
