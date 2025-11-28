@@ -1,88 +1,85 @@
-"use client"
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { getProfile } from '@/lib/db/profiles'
+import { getProfileStats } from '@/lib/queries/profile'
+import { ProfileHeader } from '@/components/profile/ProfileHeader'
+import { QuickStats } from '@/components/profile/QuickStats'
+import { MenuCard } from '@/components/profile/MenuCard'
+import { Button } from '@/components/ui/button'
+import { signout } from '@/app/auth/actions'
 
-import { useAuthStore } from '@/store/auth-store'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Loader2, User, Mail, DollarSign, Globe } from 'lucide-react'
+export default async function ProfilePage() {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-export default function ProfilePage() {
-    const { user, profile, loading } = useAuthStore()
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-        )
+    if (!user) {
+        redirect('/login')
     }
 
-    if (!user || !profile) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <p className="text-muted-foreground">Not authenticated</p>
-            </div>
-        )
+    const profile = await getProfile(supabase, user.id)
+    if (!profile) {
+        redirect('/onboarding')
     }
+
+    const stats = await getProfileStats(user.id)
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background to-muted p-8">
-            <div className="max-w-2xl mx-auto space-y-6">
+        <div className="min-h-screen bg-gradient-to-br from-background to-muted p-4 md:p-8">
+            <div className="max-w-4xl mx-auto space-y-6">
                 <h1 className="text-3xl font-bold">Profile</h1>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Personal Information</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <User className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                                <p className="text-sm text-muted-foreground">Full Name</p>
-                                <p className="font-medium">{profile.full_name || 'Not set'}</p>
-                            </div>
-                        </div>
+                <ProfileHeader profile={{
+                    full_name: profile.full_name,
+                    email: profile.email,
+                    currency: profile.currency,
+                    monthly_salary: profile.monthly_salary
+                }} />
 
-                        <div className="flex items-center gap-3">
-                            <Mail className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                                <p className="text-sm text-muted-foreground">Email</p>
-                                <p className="font-medium">{profile.email}</p>
-                            </div>
-                        </div>
+                <div>
+                    <h2 className="text-lg font-semibold mb-3">This Month</h2>
+                    <QuickStats
+                        income={stats.income}
+                        expenses={stats.expenses}
+                        balance={stats.balance}
+                        currency={profile.currency}
+                    />
+                </div>
 
-                        <div className="flex items-center gap-3">
-                            <Globe className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                                <p className="text-sm text-muted-foreground">Currency</p>
-                                <Badge variant="secondary">{profile.currency || 'Not set'}</Badge>
-                            </div>
-                        </div>
+                <div>
+                    <h2 className="text-lg font-semibold mb-3">Menu</h2>
+                    <div className="space-y-3">
+                        <MenuCard
+                            icon="🎯"
+                            title="Goals"
+                            description="Set and track savings goals"
+                            href="/profile/goals"
+                        />
+                        <MenuCard
+                            icon="📊"
+                            title="Reports"
+                            description="Monthly and yearly insights"
+                            href="/profile/reports"
+                        />
+                        <MenuCard
+                            icon="⏰"
+                            title="Reminders"
+                            description="Bill and payment reminders"
+                            href="/profile/reminders"
+                        />
+                        <MenuCard
+                            icon="⚙️"
+                            title="Settings"
+                            description="Theme, currency, preferences"
+                            href="/profile/settings"
+                        />
+                    </div>
+                </div>
 
-                        <div className="flex items-center gap-3">
-                            <DollarSign className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                                <p className="text-sm text-muted-foreground">Monthly Salary</p>
-                                <p className="font-medium">
-                                    {profile.monthly_salary
-                                        ? `${profile.currency} ${profile.monthly_salary.toLocaleString()}`
-                                        : 'Not set'}
-                                </p>
-                            </div>
-                        </div>
-
-                        {profile.primary_goal && (
-                            <div className="flex items-start gap-3">
-                                <div className="h-5 w-5 flex items-center justify-center text-muted-foreground">
-                                    🎯
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Primary Goal</p>
-                                    <p className="font-medium">{profile.primary_goal}</p>
-                                </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                <form action={signout} className="pt-4">
+                    <Button variant="destructive" className="w-full" type="submit">
+                        🚪 Sign Out
+                    </Button>
+                </form>
             </div>
         </div>
     )
