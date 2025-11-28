@@ -40,12 +40,13 @@ export default function OnboardingPage() {
         const formData = new FormData(e.currentTarget)
         formData.set('currency', currency)
 
-        try {
-            await completeOnboarding(formData)
-        } catch (err) {
-            setError('Failed to complete onboarding. Please try again.')
+        const result = await completeOnboarding(formData)
+
+        if (result?.error) {
+            setError(result.error)
             setLoading(false)
         }
+        // If no error, redirect will happen automatically
     }
 
     return (

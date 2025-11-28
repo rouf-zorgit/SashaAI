@@ -55,11 +55,11 @@ export async function updateSession(request: NextRequest) {
         // Check profile completion
         const { data: profile } = await supabase
             .from('profiles')
-            .select('full_name, currency')
+            .select('full_name, currency, monthly_salary')
             .eq('id', user.id)
             .single()
 
-        if (!profile || !profile.full_name || !profile.currency) {
+        if (!profile || !profile.full_name || !profile.currency || !profile.monthly_salary) {
             return NextResponse.redirect(new URL('/onboarding', request.url))
         }
     }
@@ -68,11 +68,11 @@ export async function updateSession(request: NextRequest) {
         // Check profile completion to prevent accessing onboarding if already complete
         const { data: profile } = await supabase
             .from('profiles')
-            .select('full_name, currency')
+            .select('full_name, currency, monthly_salary')
             .eq('id', user.id)
             .single()
 
-        if (profile && profile.full_name && profile.currency) {
+        if (profile && profile.full_name && profile.currency && profile.monthly_salary) {
             return NextResponse.redirect(new URL('/chat', request.url))
         }
     }

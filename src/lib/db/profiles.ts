@@ -47,7 +47,7 @@ export async function createProfileIfNotExists(
             { onConflict: 'id', ignoreDuplicates: true }
         )
         .select()
-        .single();
+        .maybeSingle(); // Use maybeSingle to avoid error if RLS blocks return
 
     if (error) throw error;
     return data;

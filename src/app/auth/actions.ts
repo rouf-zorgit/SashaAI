@@ -66,7 +66,21 @@ export async function signup(formData: FormData) {
             await createProfileIfNotExists(supabase, data.user.id, email, fullName)
         } catch (profileError: any) {
             console.error('Profile creation error:', profileError)
-            return { error: 'Account created but profile failed: ' + profileError.message }
+            // Continue even if profile creation fails (trigger might handle it)
+        }
+
+        // Wait a bit for trigger to complete
+        await new Promise(resolve => setTimeout(resolve, 1000))
+
+        // Verify profile was created
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single()
+
+        if (profileError || !profile) {
+            console.error('Profile verification failed:', profileError)
         }
     }
 
@@ -94,14 +108,26 @@ export async function completeOnboarding(formData: FormData) {
     const monthlySalary = formData.get('monthlySalary') ? Number(formData.get('monthlySalary')) : null
     const primaryGoal = formData.get('primaryGoal') as string
 
-    await updateProfile(supabase, user.id, {
-        full_name: fullName,
-        currency,
-        monthly_salary: monthlySalary,
-        primary_goal: primaryGoal,
-        onboarding_completed: true
-    })
+    console.log('Onboarding data:', { fullName, currency, monthlySalary, primaryGoal, userId: user.id })
 
+    const { error } = await supabase
+        .from('profiles')
+        .update({
+            full_name: fullName,
+            currency,
+            monthly_salary: monthlySalary,
+            primary_goal: primaryGoal,
+            onboarding_completed: true
+        })
+        .eq('id', user.id)
+
+    if (error) {
+        console.error('Failed to update profile:', error)
+        console.error('Error details:', JSON.stringify(error, null, 2))
+        return { error: 'Failed to complete onboarding. Please try again.' }
+    }
+
+    console.log('Profile updated successfully')
     revalidatePath('/', 'layout')
     redirect('/chat')
 }

@@ -1,155 +1,60 @@
-"use client"
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { HistoryClient } from '@/components/history/HistoryClient'
+import { getProfile } from '@/lib/db/profiles'
 
-import { useState, useEffect } from 'react'
-import { useAuthStore } from '@/store/auth-store'
-import { getTransactionsWithFilters, getNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/queries/history'
-import { TransactionRow } from '@/components/history/TransactionRow'
-import { NotificationCard } from '@/components/history/NotificationCard'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Loader2, Search } from 'lucide-react'
-import { toast } from 'sonner'
+export default async function HistoryPage() {
+    try {
+        const supabase = await createClient()
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-export default function HistoryPage() {
-    const { user, profile } = useAuthStore()
-    const [transactions, setTransactions] = useState<any[]>([])
-    const [notifications, setNotifications] = useState<any[]>([])
-    const [loading, setLoading] = useState(true)
-    const [search, setSearch] = useState('')
-
-    useEffect(() => {
-        if (user) {
-            loadData()
+        if (authError || !user) {
+            redirect('/login')
         }
-    }, [user])
 
-    const loadData = async () => {
-        if (!user) return
-        setLoading(true)
-        try {
-            const [txns, notifs] = await Promise.all([
-                getTransactionsWithFilters(user.id, { limit: 50 }),
-                getNotifications(user.id)
-            ])
-            setTransactions(txns)
-            setNotifications(notifs)
-        } catch (error) {
-            console.error('Error loading data:', error)
-            toast.error('Failed to load history')
-        } finally {
-            setLoading(false)
-        }
-    }
+        // Fetch profile for currency
+        const profile = await getProfile(supabase, user.id)
+        const currency = profile?.currency || 'USD'
 
-    const handleMarkRead = async (id: string) => {
-        try {
-            await markNotificationRead(id)
-            setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n))
-        } catch (error) {
-            console.error('Error marking notification:', error)
-            toast.error('Failed to mark as read')
-        }
-    }
+        // Fetch transactions
+        const { data: transactions, error: txError } = await supabase
+            .from('transactions')
+            .select('*')
+            .eq('user_id', user.id)
+            .is('deleted_at', null)
+            .order('date', { ascending: false })
+            .limit(100)
 
-    const handleMarkAllRead = async () => {
-        if (!user) return
-        try {
-            await markAllNotificationsRead(user.id)
-            setNotifications(notifications.map(n => ({ ...n, is_read: true })))
-            toast.success('All notifications marked as read')
-        } catch (error) {
-            console.error('Error marking all read:', error)
-            toast.error('Failed to mark all as read')
-        }
-    }
+        // Fetch notifications
+        const { data: notifications, error: notifError } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(50)
 
-    const filteredTransactions = transactions.filter(t =>
-        t.description.toLowerCase().includes(search.toLowerCase()) ||
-        t.category.toLowerCase().includes(search.toLowerCase())
-    )
 
-    const unreadCount = notifications.filter(n => !n.is_read).length
+        if (txError) console.error('Transactions error:', JSON.stringify(txError, null, 2))
+        if (notifError) console.error('Notifications error:', JSON.stringify(notifError, null, 2))
 
-    if (loading) {
+        return (
+            <HistoryClient
+                initialTransactions={transactions || []}
+                initialNotifications={notifications || []}
+                user={user}
+                currency={currency}
+            />
+        )
+
+    } catch (error) {
+        console.error('History page error:', error)
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin" />
+                <div className="text-center">
+                    <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
+                    <p className="text-muted-foreground">Please refresh the page</p>
+                </div>
             </div>
         )
     }
-
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-background to-muted p-4 md:p-8">
-            <div className="max-w-4xl mx-auto space-y-6">
-                <h1 className="text-3xl font-bold">History</h1>
-
-                <Tabs defaultValue="transactions" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="transactions">
-                            💰 Transactions
-                        </TabsTrigger>
-                        <TabsTrigger value="notifications">
-                            🔔 Notifications {unreadCount > 0 && `(${unreadCount})`}
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="transactions" className="space-y-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search transactions..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="pl-10"
-                            />
-                        </div>
-
-                        {filteredTransactions.length > 0 ? (
-                            <div className="space-y-2">
-                                {filteredTransactions.map(transaction => (
-                                    <TransactionRow
-                                        key={transaction.id}
-                                        transaction={transaction}
-                                        currency={profile?.currency || 'USD'}
-                                        onDelete={loadData}
-                                    />
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-12">
-                                <p className="text-muted-foreground">
-                                    {search ? 'No transactions found' : 'No transactions yet'}
-                                </p>
-                            </div>
-                        )}
-                    </TabsContent>
-
-                    <TabsContent value="notifications" className="space-y-4">
-                        {unreadCount > 0 && (
-                            <Button onClick={handleMarkAllRead} variant="outline">
-                                Mark All as Read
-                            </Button>
-                        )}
-
-                        {notifications.length > 0 ? (
-                            <div className="space-y-2">
-                                {notifications.map(notification => (
-                                    <NotificationCard
-                                        key={notification.id}
-                                        notification={notification}
-                                        onMarkRead={() => handleMarkRead(notification.id)}
-                                    />
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-12">
-                                <p className="text-muted-foreground">No notifications</p>
-                            </div>
-                        )}
-                    </TabsContent>
-                </Tabs>
-            </div>
-        </div>
-    )
 }

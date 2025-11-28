@@ -47,7 +47,7 @@ export default async function ProfilePage() {
 
                 <div>
                     <h2 className="text-lg font-semibold mb-3">Menu</h2>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                         <MenuCard
                             icon="🎯"
                             title="Goals"
@@ -76,7 +76,7 @@ export default async function ProfilePage() {
                 </div>
 
                 <form action={signout} className="pt-4">
-                    <Button variant="destructive" className="w-full" type="submit">
+                    <Button variant="destructive" className="w-full cursor-pointer" type="submit">
                         🚪 Sign Out
                     </Button>
                 </form>
