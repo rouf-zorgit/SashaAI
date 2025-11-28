@@ -1,8 +1,10 @@
-import { supabase } from '../supabase';
+import { SupabaseClient } from '@supabase/supabase-js';
 import type { Profile } from '../../types/supabase';
-import type { ProfileUpdateInput } from '../validators/profile';
 
-export async function getProfile(userId: string): Promise<Profile | null> {
+// Define a simpler update type since we don't have the validator yet
+export type ProfileUpdateInput = Partial<Profile>;
+
+export async function getProfile(supabase: SupabaseClient, userId: string): Promise<Profile | null> {
     const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -16,7 +18,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
     return data;
 }
 
-export async function updateProfile(userId: string, updates: ProfileUpdateInput) {
+export async function updateProfile(supabase: SupabaseClient, userId: string, updates: ProfileUpdateInput) {
     const { data, error } = await supabase
         .from('profiles')
         .update(updates)
@@ -29,6 +31,7 @@ export async function updateProfile(userId: string, updates: ProfileUpdateInput)
 }
 
 export async function createProfileIfNotExists(
+    supabase: SupabaseClient,
     userId: string,
     email: string,
     fullName?: string
@@ -40,8 +43,6 @@ export async function createProfileIfNotExists(
                 id: userId,
                 email,
                 full_name: fullName,
-                // monthly_salary is nullable, so we don't need to set it here unless we have a default
-                // created_at and updated_at are handled by defaults/triggers
             },
             { onConflict: 'id', ignoreDuplicates: true }
         )

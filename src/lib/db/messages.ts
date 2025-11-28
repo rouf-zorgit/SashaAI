@@ -1,134 +1,68 @@
-import { supabase } from '../supabase';
+import { SupabaseClient } from '@supabase/supabase-js'
 
 export interface Message {
-    id: string;
-    user_id: string;
-    session_id: string;
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-    intent?: string;
-    confidence?: number;
-    metadata?: any;
-    created_at: string;
+    id: string
+    user_id: string
+    role: 'user' | 'assistant' | 'system'
+    content: string
+    created_at: string
 }
 
-/**
- * Get all messages for a specific session
- */
-export async function getMessagesBySession(
-    userId: string,
-    sessionId: string
-): Promise<{ data: Message[], error: any }> {
-    const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: true });
-
-    if (error) {
-        console.error('Error fetching messages by session:', error);
-        return { data: [], error };
-    }
-
-    return { data: data as Message[], error: null };
-}
-
-/**
- * Get recent messages for a user (across all sessions)
- */
-export async function getRecentMessages(
+export async function getMessages(
+    supabase: SupabaseClient,
     userId: string,
     limit: number = 50
-): Promise<{ data: Message[], error: any }> {
+): Promise<Message[]> {
     const { data, error } = await supabase
         .from('messages')
         .select('*')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
+        .order('created_at', { ascending: true })
+        .limit(limit)
 
     if (error) {
-        console.error('Error fetching recent messages:', error);
-        return { data: [], error };
+        console.error('Error fetching messages:', error)
+        return []
     }
 
-    // Reverse to get chronological order
-    return { data: (data as Message[]).reverse(), error: null };
+    return data || []
 }
 
-/**
- * Get all messages for a user (legacy - use getMessagesBySession instead)
- * @deprecated Use getMessagesBySession for better performance
- */
-export async function getMessages(userId: string): Promise<{ data: Message[], error: any }> {
-    const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true });
-
-    if (error) {
-        console.error('Error fetching messages:', error);
-        return { data: [], error };
-    }
-
-    return { data: data as Message[], error: null };
-}
-
-/**
- * Create a new message
- */
-export async function createMessage(
+export async function saveMessage(
+    supabase: SupabaseClient,
     userId: string,
-    sessionId: string,
-    role: 'user' | 'assistant' | 'system',
-    content: string,
-    options?: {
-        intent?: string;
-        confidence?: number;
-        metadata?: any;
-    }
+    role: 'user' | 'assistant',
+    content: string
 ): Promise<Message | null> {
     const { data, error } = await supabase
         .from('messages')
         .insert({
             user_id: userId,
-            session_id: sessionId,
             role,
             content,
-            intent: options?.intent,
-            confidence: options?.confidence,
-            metadata: options?.metadata || {}
         })
         .select()
-        .single();
+        .single()
 
     if (error) {
-        console.error('Error creating message:', error);
-        return null;
+        console.error('Error saving message:', error)
+        throw error
     }
 
-    return data as Message;
+    return data
 }
 
-/**
- * Delete all messages for a session
- */
-export async function deleteSessionMessages(
-    userId: string,
-    sessionId: string
-): Promise<{ success: boolean, error: any }> {
+export async function deleteMessage(
+    supabase: SupabaseClient,
+    messageId: string
+): Promise<void> {
     const { error } = await supabase
         .from('messages')
         .delete()
-        .eq('user_id', userId)
-        .eq('session_id', sessionId);
+        .eq('id', messageId)
 
     if (error) {
-        console.error('Error deleting session messages:', error);
-        return { success: false, error };
+        console.error('Error deleting message:', error)
+        throw error
     }
-
-    return { success: true, error: null };
 }
