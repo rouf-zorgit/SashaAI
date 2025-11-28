@@ -8,6 +8,8 @@ import { MenuCard } from '@/components/profile/MenuCard'
 import { Button } from '@/components/ui/button'
 import { signout } from '@/app/auth/actions'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ProfilePage() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

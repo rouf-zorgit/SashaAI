@@ -3,6 +3,8 @@ import { getGoalsServer } from '@/lib/queries/server-goals'
 import { GoalsClient } from '@/components/goals/GoalsClient'
 import { redirect } from 'next/navigation'
 
+export const dynamic = 'force-dynamic'
+
 export default async function GoalsPage() {
     try {
         const supabase = await createClient()

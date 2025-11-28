@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { RemindersClient } from '@/components/reminders/RemindersClient'
 import { getProfile } from '@/lib/db/profiles'
 
+export const dynamic = 'force-dynamic'
+
 export default async function RemindersPage() {
     try {
         const supabase = await createClient()
