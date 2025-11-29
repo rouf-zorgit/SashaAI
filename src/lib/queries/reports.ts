@@ -14,6 +14,7 @@ export async function getMonthlyReport(
         .from('transactions')
         .select('*')
         .eq('user_id', userId)
+        .is('deleted_at', null)
         .gte('created_at', startDate)
         .lte('created_at', endDate)
 
@@ -68,6 +69,7 @@ export async function getYearlyTrend(userId: string, year: number) {
         .from('transactions')
         .select('*')
         .eq('user_id', userId)
+        .is('deleted_at', null)
         .gte('date', startDate)
         .lte('date', endDate)
 

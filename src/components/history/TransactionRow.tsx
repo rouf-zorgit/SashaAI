@@ -3,12 +3,13 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { formatTransactionDate } from '@/lib/utils/date'
 import { formatCurrency } from '@/lib/utils/currency'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Pencil } from 'lucide-react'
 import { softDeleteTransaction, undoDeleteTransaction } from '@/lib/queries/transactions'
 import { toast } from 'sonner'
 
 interface Transaction {
     id: string
+    user_id: string // Added
     amount: number
     category: string
     description: string
@@ -20,6 +21,8 @@ interface TransactionRowProps {
     transaction: Transaction
     currency: string
     onDelete?: () => void
+    onEdit?: () => void
+    currentUserId?: string // Added for debugging
 }
 
 const categoryIcons: Record<string, string> = {
@@ -38,14 +41,19 @@ const categoryIcons: Record<string, string> = {
     other: '📌'
 }
 
-export function TransactionRow({ transaction, currency, onDelete }: TransactionRowProps) {
+
+export function TransactionRow({ transaction, currency, onDelete, onEdit, currentUserId }: TransactionRowProps) {
     const [isDeleting, setIsDeleting] = useState(false)
     const icon = categoryIcons[transaction.category] || '📌'
     const isIncome = transaction.type === 'income'
 
+    // Debug check
+    const isOwner = currentUserId ? transaction.user_id === currentUserId : true;
+
     const handleDelete = async () => {
         setIsDeleting(true)
         try {
+            console.log('🗑️ Attempting delete for:', transaction.id);
             await softDeleteTransaction(transaction.id)
 
             toast.success('Transaction deleted', {
@@ -54,21 +62,15 @@ export function TransactionRow({ transaction, currency, onDelete }: TransactionR
                     onClick: async () => {
                         await undoDeleteTransaction(transaction.id)
                         toast.success('Transaction restored')
-                        // Ideally we'd trigger a refresh here, but for now the row is gone
-                        // The parent component should handle the refresh via onDelete
-                        // But since undo happens after delete, the row might be gone.
-                        // We might need a more complex state management for this.
-                        // For MVP, we'll just restore it in DB. The user will see it on refresh.
-                        // Or we can reload the page.
                         window.location.reload()
                     }
                 }
             })
 
             if (onDelete) onDelete()
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error deleting transaction:', error)
-            toast.error('Failed to delete transaction')
+            toast.error(`Delete failed: ${error.message}`)
         } finally {
             setIsDeleting(false)
         }
@@ -76,32 +78,56 @@ export function TransactionRow({ transaction, currency, onDelete }: TransactionR
 
     return (
         <Card className="p-4 hover:bg-accent/50 transition-colors group relative">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 flex-1">
-                    <span className="text-2xl">{icon}</span>
-                    <div>
-                        <p className="font-medium capitalize">{transaction.category}</p>
-                        <p className="text-sm text-muted-foreground">{transaction.description}</p>
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <span className="text-2xl flex-shrink-0">{icon}</span>
+                    <div className="flex-1 min-w-0">
+                        <p className="font-medium capitalize truncate">{transaction.category}</p>
+                        <p className="text-sm text-muted-foreground truncate">{transaction.description}</p>
+
+                        {/* DEBUG INFO - Only visible if ID mismatch or explicitly enabled */}
+                        {currentUserId && !isOwner && (
+                            <div className="text-xs text-red-500 mt-1 font-mono bg-red-50 p-1 rounded">
+                                ⚠️ Ownership Mismatch!
+                                <br />Tx User: {transaction.user_id}
+                                <br />You: {currentUserId}
+                            </div>
+                        )}
                     </div>
                 </div>
-                <div className="text-right mr-8">
-                    <p className={`text-lg font-bold ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
-                        {isIncome ? '+' : '-'}{formatCurrency(transaction.amount, currency)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                        {formatTransactionDate(transaction.date)}
-                    </p>
-                </div>
 
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={handleDelete}
-                    disabled={isDeleting}
-                >
-                    <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-3">
+                    <div className="text-right">
+                        <p className={`text-lg font-bold ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
+                            {isIncome ? '+' : '-'}{formatCurrency(transaction.amount, currency)}
+                        </p>
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">
+                            {formatTransactionDate(transaction.date)}
+                        </p>
+                    </div>
+
+                    <div className="flex gap-1 opacity-100 flex-shrink-0">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-primary/10 hover:border-primary"
+                            onClick={onEdit}
+                            title="Edit transaction"
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive"
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                            title="Delete transaction"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
             </div>
         </Card>
     )

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { markNotificationRead, markAllNotificationsRead, getTransactionsWithFilters } from '@/lib/queries/history'
 import { TransactionRow } from '@/components/history/TransactionRow'
 import { NotificationCard } from '@/components/history/NotificationCard'
+import { EditTransactionDialog } from '@/components/history/EditTransactionDialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,8 @@ export function HistoryClient({ initialTransactions, initialNotifications, user,
     const [transactions, setTransactions] = useState<any[]>(initialTransactions)
     const [notifications, setNotifications] = useState<any[]>(initialNotifications)
     const [search, setSearch] = useState('')
+    const [editingTransaction, setEditingTransaction] = useState<any | null>(null)
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
     const router = useRouter()
     const searchParams = useSearchParams()
     const typeFilter = searchParams.get('type') // 'income' or 'expense'
@@ -36,6 +39,18 @@ export function HistoryClient({ initialTransactions, initialNotifications, user,
         } catch (error) {
             console.error('Error refreshing data:', error)
         }
+    }
+
+    const handleEdit = (transaction: any) => {
+        console.log('✏️ Opening edit dialog for:', transaction.id);
+        setEditingTransaction(transaction);
+        setIsEditDialogOpen(true);
+    }
+
+    const handleEditSuccess = () => {
+        console.log('✅ Edit success callback');
+        // Force page reload to show updated data
+        window.location.reload();
     }
 
     const handleMarkRead = async (id: string) => {
@@ -129,6 +144,8 @@ export function HistoryClient({ initialTransactions, initialNotifications, user,
                                         transaction={transaction}
                                         currency={currency}
                                         onDelete={refreshData}
+                                        onEdit={() => handleEdit(transaction)}
+                                        currentUserId={user.id}
                                     />
                                 ))}
                             </div>
@@ -166,6 +183,13 @@ export function HistoryClient({ initialTransactions, initialNotifications, user,
                     </TabsContent>
                 </Tabs>
             </div>
+
+            <EditTransactionDialog
+                transaction={editingTransaction}
+                open={isEditDialogOpen}
+                onClose={() => setIsEditDialogOpen(false)}
+                onSuccess={handleEditSuccess}
+            />
         </div>
     )
 }
