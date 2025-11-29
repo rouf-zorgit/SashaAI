@@ -1,22 +1,32 @@
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/server'
 
 export async function getMonthlyReport(
     userId: string,
     year: number,
     month: number
 ) {
-    const supabase = createClient()
+    const supabase = await createClient()
 
     const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0]
     const endDate = new Date(year, month, 0).toISOString().split('T')[0]
 
-    const { data: transactions } = await supabase
+    console.log(`📊 getMonthlyReport: Querying for ${year}-${month}`)
+    console.log(`📊 Date range: ${startDate} to ${endDate}`)
+
+    const { data: transactions, error } = await supabase
         .from('transactions')
         .select('*')
         .eq('user_id', userId)
         .is('deleted_at', null)
-        .gte('created_at', startDate)
-        .lte('created_at', endDate)
+        .gte('date', startDate)
+        .lte('date', endDate)
+
+    if (error) {
+        console.error('❌ getMonthlyReport error:', error)
+        return null
+    }
+
+    console.log(`📊 Found ${transactions?.length || 0} transactions`)
 
     if (!transactions) return null
 
@@ -27,6 +37,8 @@ export async function getMonthlyReport(
     const expenses = transactions
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + Number(t.amount), 0)
+
+    console.log(`📊 Income: ${income}, Expenses: ${expenses}`)
 
     // Group by category
     const byCategory: Record<string, number> = {}
@@ -43,7 +55,7 @@ export async function getMonthlyReport(
         .map(([category, amount]) => ({
             category,
             amount,
-            percentage: (amount / expenses) * 100,
+            percentage: expenses > 0 ? (amount / expenses) * 100 : 0,
         }))
 
     return {
@@ -60,7 +72,7 @@ export async function getMonthlyReport(
 }
 
 export async function getYearlyTrend(userId: string, year: number) {
-    const supabase = createClient()
+    const supabase = await createClient()
 
     const startDate = `${year}-01-01`
     const endDate = `${year}-12-31`

@@ -38,26 +38,26 @@ IMPORTANT:
 - The marker will be hidden from the user
 `
 
-function extractTransaction(aiResponse: string): any {
-    console.log('🔍 Checking response for [TRANSACTION:...');
+function extractTransactions(aiResponse: string): any[] {
+    console.log('🔍 Checking response for [TRANSACTION:...] markers');
 
-    // Look for [TRANSACTION: amount=X, category=Y, type=Z, description=W]
-    const regex = /\[TRANSACTION:\s*amount=([0-9.]+),\s*category=(\w+),\s*type=(\w+),\s*description=([^\]]+)\]/;
-    const match = aiResponse.match(regex);
+    // Look for ALL [TRANSACTION: amount=X, category=Y, type=Z, description=W] markers
+    const regex = /\[TRANSACTION:\s*amount=([0-9.]+),\s*category=([\w]+),\s*type=([\w]+),\s*description=([^\]]+)\]/g;
+    const matches = [...aiResponse.matchAll(regex)];
 
-    if (!match) {
-        console.log('⚠️ No [TRANSACTION:...] marker found in response');
-        return null;
+    if (matches.length === 0) {
+        console.log('⚠️ No [TRANSACTION:...] markers found in response');
+        return [];
     }
 
-    console.log('✅ Transaction marker found!');
+    console.log(`✅ Found ${matches.length} transaction marker(s)!`);
 
-    return {
+    return matches.map(match => ({
         amount: parseFloat(match[1]),
         category: match[2],
         type: match[3],
         description: match[4].trim(),
-    };
+    }));
 }
 
 export async function POST(request: NextRequest) {
@@ -161,39 +161,48 @@ export async function POST(request: NextRequest) {
         const fullResponse = contentBlock.type === 'text' ? contentBlock.text : ''
 
         console.log('🔍 AI Response:', fullResponse);
-        console.log('🔍 Attempting to extract transaction...');
+        console.log('🔍 Attempting to extract transactions...');
 
-        const transaction = extractTransaction(fullResponse);
+        const transactions = extractTransactions(fullResponse);
 
-        console.log('🔍 Extracted transaction:', transaction);
+        console.log(`🔍 Extracted ${transactions.length} transaction(s):`, transactions);
 
-        if (transaction) {
-            console.log('� Saving transaction to database...');
-            console.log('💾 Transaction data:', JSON.stringify(transaction, null, 2));
+        const savedTransactions = [];
 
-            const { data: savedTx, error: txError } = await supabase
-                .from('transactions')
-                .insert({
-                    user_id: user.id,
-                    amount: transaction.amount,
-                    category: transaction.category,
-                    type: transaction.type,
-                    description: transaction.description,
-                    date: new Date().toISOString().split('T')[0],
-                })
-                .select()
-                .single();
+        if (transactions.length > 0) {
+            console.log(`💾 Saving ${transactions.length} transaction(s) to database...`);
 
-            if (txError) {
-                console.error('❌ TRANSACTION SAVE FAILED:', txError);
-                console.error('❌ Error code:', txError.code);
-                console.error('❌ Error message:', txError.message);
-                console.error('❌ Error details:', JSON.stringify(txError, null, 2));
-            } else {
-                console.log('✅ TRANSACTION SAVED SUCCESSFULLY:', savedTx);
+            for (const transaction of transactions) {
+                console.log('💾 Transaction data:', JSON.stringify(transaction, null, 2));
+
+                const { data: savedTx, error: txError } = await supabase
+                    .from('transactions')
+                    .insert({
+                        user_id: user.id,
+                        amount: transaction.amount,
+                        base_amount: transaction.amount, // CRITICAL: Required field
+                        category: transaction.category,
+                        type: transaction.type,
+                        description: transaction.description,
+                        date: new Date().toISOString(),
+                    })
+                    .select()
+                    .single();
+
+                if (txError) {
+                    console.error('❌ TRANSACTION SAVE FAILED:', txError);
+                    console.error('❌ Error code:', txError.code);
+                    console.error('❌ Error message:', txError.message);
+                    console.error('❌ Error details:', JSON.stringify(txError, null, 2));
+                } else {
+                    console.log('✅ TRANSACTION SAVED SUCCESSFULLY:', savedTx);
+                    savedTransactions.push(savedTx);
+                }
             }
+
+            console.log(`✅ Saved ${savedTransactions.length}/${transactions.length} transaction(s)`);
         } else {
-            console.log('⚠️ No transaction found in AI response');
+            console.log('⚠️ No transactions found in AI response');
         }
 
         // Then save assistant message (without the [TRANSACTION] marker visible to user)
@@ -222,7 +231,8 @@ export async function POST(request: NextRequest) {
             JSON.stringify({
                 message: cleanResponse,
                 sessionId: currentSessionId,
-                transaction: transaction, // Send transaction info for toast notification
+                transactions: savedTransactions, // Send all saved transactions for toast notifications
+                transactionCount: savedTransactions.length,
             }),
             { headers: { 'Content-Type': 'application/json' } }
         )

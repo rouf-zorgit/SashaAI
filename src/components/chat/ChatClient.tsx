@@ -127,9 +127,28 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
 
             // Check for transaction extraction
             // @ts-ignore
-            if (data.transaction) {
-                console.log('💰 Transaction detected:', data.transaction)
-                toast.success('Transaction logged!')
+            if (data.transactions && data.transactions.length > 0) {
+                console.log(`💰 ${data.transactions.length} Transaction(s) detected:`, data.transactions)
+                const symbol = currency === 'BDT' ? '৳' : currency === 'USD' ? '$' : currency
+
+                if (data.transactions.length === 1) {
+                    const tx = data.transactions[0]
+                    toast.success(`Transaction saved: ${symbol}${tx.amount} - ${tx.category}`, {
+                        description: tx.description,
+                        duration: 5000,
+                    })
+                } else {
+                    const total = data.transactions.reduce((sum: number, tx: any) => sum + tx.amount, 0)
+                    toast.success(`${data.transactions.length} transactions saved! Total: ${symbol}${total}`, {
+                        description: data.transactions.map((tx: any) => `${tx.category}: ${symbol}${tx.amount}`).join(', '),
+                        duration: 6000,
+                    })
+                }
+
+                // Trigger a page refresh after a short delay to show updated data
+                setTimeout(() => {
+                    window.location.reload()
+                }, 1500)
             }
 
         } catch (error) {
