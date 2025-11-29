@@ -4,13 +4,22 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ChatMessage } from '@/components/custom/ChatMessage'
 import { ChatInput } from '@/components/custom/ChatInput'
+import { ReceiptUpload } from '@/components/chat/ReceiptUpload'
 import { Button } from '@/components/ui/button'
-import { LogOut } from 'lucide-react'
+import { LogOut, Receipt } from 'lucide-react'
 import { toast } from 'sonner'
 import { signout } from '@/app/auth/actions'
 import { Message } from '@/types/chat'
 import { User } from '@supabase/supabase-js'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog'
 
 interface ChatClientProps {
     initialMessages: Message[]
@@ -26,6 +35,7 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
     const [messages, setMessages] = useState<Message[]>(initialMessages)
     const [isLoading, setIsLoading] = useState(false)
     const [sessionId, setSessionId] = useState<string | null>(null)
+    const [showReceiptUpload, setShowReceiptUpload] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
 
     // Scroll to bottom when messages change
@@ -166,6 +176,17 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
         }
     }
 
+    const handleReceiptTransaction = async (transaction: any) => {
+        // Convert receipt transaction to a chat message
+        const message = `I uploaded a receipt from ${transaction.merchant} for ${transaction.currency} ${transaction.amount} in the ${transaction.category} category on ${transaction.date}.`
+
+        // Close the dialog
+        setShowReceiptUpload(false)
+
+        // Send as a regular message to be processed by the chat API
+        await handleSendMessage(message)
+    }
+
     return (
         <div className="flex flex-col h-full max-h-full overflow-hidden bg-gradient-to-br from-background to-muted">
             {/* Header */}
@@ -186,6 +207,27 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
                     </div>
 
                     <div className="flex items-center gap-4">
+                        <Dialog open={showReceiptUpload} onOpenChange={setShowReceiptUpload}>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="cursor-pointer">
+                                    <Receipt className="h-4 w-4 mr-2" />
+                                    Upload Receipt
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl">
+                                <DialogHeader>
+                                    <DialogTitle>Upload Receipt</DialogTitle>
+                                    <DialogDescription>
+                                        Take a photo or upload an image of your receipt. Sasha will automatically extract the transaction details.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <ReceiptUpload
+                                    userId={user.id}
+                                    onTransactionExtracted={handleReceiptTransaction}
+                                />
+                            </DialogContent>
+                        </Dialog>
+
                         <form action={signout}>
                             <Button variant="ghost" size="sm" type="submit" className="cursor-pointer">
                                 <LogOut className="h-4 w-4 mr-2" />
