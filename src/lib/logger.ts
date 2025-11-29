@@ -16,8 +16,8 @@ class Logger {
             data,
         }
 
-        // In production, this would send to a service like Sentry or Datadog
-        // For MVP, we just log to console with structured format
+        // In production, only log errors and warnings
+        // In development, log everything with colors
         if (process.env.NODE_ENV === 'development') {
             const color = {
                 info: '\x1b[36m', // Cyan
@@ -27,9 +27,11 @@ class Logger {
             }[level]
 
             console.log(`${color}[${level.toUpperCase()}] ${message}\x1b[0m`, data || '')
-        } else {
-            console.log(JSON.stringify(entry))
+        } else if (level === 'error' || level === 'warn') {
+            // Only log errors and warnings in production (for monitoring services)
+            console.error(JSON.stringify(entry))
         }
+        // Silently ignore info and debug logs in production
     }
 
     info(message: string, data?: any) {

@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Mail, ArrowLeft } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 
 export default function ForgotPasswordPage() {
     const [email, setEmail] = useState('')
@@ -16,12 +18,26 @@ export default function ForgotPasswordPage() {
         e.preventDefault()
         setLoading(true)
 
-        // TODO: Implement password reset with Supabase
-        // For now, just show success message
-        setTimeout(() => {
+        try {
+            const supabase = createClient()
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+            })
+
+            if (error) {
+                toast.error(error.message || 'Failed to send reset email')
+                setLoading(false)
+                return
+            }
+
             setSubmitted(true)
+            toast.success('Password reset link sent to your email')
+        } catch (err) {
+            toast.error('An unexpected error occurred')
+            console.error('Password reset error:', err)
+        } finally {
             setLoading(false)
-        }, 1000)
+        }
     }
 
     return (
