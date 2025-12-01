@@ -130,5 +130,6 @@ env_backup*.txt
 # Local environment files (keep examples only)
 .env
 .env.local
+.env.docker
 .env.staging
 .env.production
