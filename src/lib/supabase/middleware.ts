@@ -1,0 +1,81 @@
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+export async function updateSession(request: NextRequest) {
+    let supabaseResponse = NextResponse.next({
+        request,
+    })
+
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                getAll() {
+                    return request.cookies.getAll()
+                },
+                setAll(cookiesToSet) {
+                    cookiesToSet.forEach(({ name, value, options }) =>
+                        request.cookies.set(name, value)
+                    )
+                    supabaseResponse = NextResponse.next({
+                        request,
+                    })
+                    cookiesToSet.forEach(({ name, value, options }) =>
+                        supabaseResponse.cookies.set(name, value, options)
+                    )
+                },
+            },
+        }
+    )
+
+    // IMPORTANT: Avoid writing any logic between createServerClient and
+    // supabase.auth.getUser(). A simple mistake could make it very hard to debug
+    // issues with users being randomly logged out.
+
+    const {
+        data: { user },
+    } = await supabase.auth.getUser()
+
+    // Protected routes
+    const protectedRoutes = ['/chat', '/reports', '/history', '/profile', '/onboarding']
+    const authRoutes = ['/login', '/signup']
+    const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route))
+    const isAuthRoute = authRoutes.some(route => request.nextUrl.pathname.startsWith(route))
+
+    if (isProtectedRoute && !user) {
+        return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    if (isAuthRoute && user) {
+        return NextResponse.redirect(new URL('/chat', request.url))
+    }
+
+    if (user && isProtectedRoute && !request.nextUrl.pathname.startsWith('/onboarding')) {
+        // Check profile completion
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, currency, monthly_salary')
+            .eq('id', user.id)
+            .single()
+
+        if (!profile || !profile.full_name || !profile.currency || !profile.monthly_salary) {
+            return NextResponse.redirect(new URL('/onboarding', request.url))
+        }
+    }
+
+    if (user && request.nextUrl.pathname.startsWith('/onboarding')) {
+        // Check profile completion to prevent accessing onboarding if already complete
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, currency, monthly_salary')
+            .eq('id', user.id)
+            .single()
+
+        if (profile && profile.full_name && profile.currency && profile.monthly_salary) {
+            return NextResponse.redirect(new URL('/chat', request.url))
+        }
+    }
+
+    return supabaseResponse
+}

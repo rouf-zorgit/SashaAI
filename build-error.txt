@@ -1,0 +1,157 @@
+﻿
+> finai-mvp@0.1.0 build
+> next build
+
+   Γû▓ Next.js 16.0.5 (Turbopack)
+   - Environments: .env.local, .env
+
+node.exe :  ΓÜá The 
+"middleware" file 
+convention is 
+deprecated. Please use 
+"proxy" instead. Learn 
+more: https://nextjs.org
+/docs/messages/middlewar
+e-to-proxy
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo      
+        : NotSpecified  
+  : ( ΓÜá The "middl.   
+ ..leware-to-proxy:S    
+tring) [], RemoteEx    
+ception
+    + FullyQualifiedErr 
+   orId : NativeComman  
+  dError
+ 
+   Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build 
+failed with 1 errors:
+./src/lib/supabase/serve
+r.ts:2:1
+Ecmascript file had an 
+error
+[0m [90m 1 |[39m 
+[36mimport[39m { 
+createServerClient } 
+[36mfrom[39m [32m'@su
+pabase/ssr'[39m
+[31m[1m>[22m[39m[90
+m 2 |[39m 
+[36mimport[39m { 
+cookies } 
+[36mfrom[39m 
+[32m'next/headers'[39m
+ [90m   |[39m [31m[1
+m^[22m[39m[31m[1m^[
+22m[39m[31m[1m^[22m
+[39m[31m[1m^[22m[39m
+[31m[1m^[22m[39m[31
+m[1m^[22m[39m[31m[1
+m^[22m[39m[31m[1m^[
+22m[39m[31m[1m^[22m
+[39m[31m[1m^[22m[39m
+[31m[1m^[22m[39m[31
+m[1m^[22m[39m[31m[1
+m^[22m[39m[31m[1m^[
+22m[39m[31m[1m^[22m
+[39m[31m[1m^[22m[39m
+[31m[1m^[22m[39m[31
+m[1m^[22m[39m[31m[1
+m^[22m[39m[31m[1m^[
+22m[39m[31m[1m^[22m
+[39m[31m[1m^[22m[39m
+[31m[1m^[22m[39m[31
+m[1m^[22m[39m[31m[1
+m^[22m[39m[31m[1m^[
+22m[39m[31m[1m^[22m
+[39m[31m[1m^[22m[39m
+[31m[1m^[22m[39m[31
+m[1m^[22m[39m[31m[1
+m^[22m[39m[31m[1m^[
+22m[39m[31m[1m^[22m
+[39m[31m[1m^[22m[39m
+[31m[1m^[22m[39m[31
+m[1m^[22m[39m[31m[1
+m^[22m[39m[31m[1m^[
+22m[39m
+ [90m 3 |[39m
+ [90m 4 |[39m 
+[36mexport[39m 
+[36masync[39m 
+[36mfunction[39m 
+createClient() {
+ [90m 5 |[39m     
+[36mconst[39m 
+cookieStore [33m=[39m 
+[36mawait[39m 
+cookies()[0m
+
+You're importing a 
+component that needs 
+"next/headers". That 
+only works in a Server 
+Component which is not 
+supported in the pages/ 
+directory. Read more: ht
+tps://nextjs.org/docs/ap
+p/building-your-applicat
+ion/rendering/server-com
+ponents
+
+
+
+Import traces:
+  App Route:
+    ./src/lib/supabase/s
+erver.ts
+    ./src/app/api/chat/r
+oute.ts
+
+  Server Component:
+    ./src/lib/supabase/s
+erver.ts
+    ./src/app/page.tsx
+
+  Client Component 
+Browser:
+    ./src/lib/supabase/s
+erver.ts [Client 
+Component Browser]
+    ./src/lib/queries/go
+als.ts [Client 
+Component Browser]
+    ./src/app/profile/go
+als/page.tsx [Client 
+Component Browser]
+    ./src/app/profile/go
+als/page.tsx [Server 
+Component]
+
+  Client Component SSR:
+    ./src/lib/supabase/s
+erver.ts [Client 
+Component SSR]
+    ./src/lib/queries/go
+als.ts [Client 
+Component SSR]
+    ./src/app/profile/go
+als/page.tsx [Client 
+Component SSR]
+    ./src/app/profile/go
+als/page.tsx [Server 
+Component]
+
+
+    at <unknown> (./src/
+lib/supabase/server.ts:2
+:1)
