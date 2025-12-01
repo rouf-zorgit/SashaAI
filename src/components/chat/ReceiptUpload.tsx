@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 interface ReceiptUploadProps {
     userId: string
@@ -49,18 +48,14 @@ export function ReceiptUpload({ userId, onTransactionExtracted }: ReceiptUploadP
             // Extract base64 data from preview
             const base64Data = preview.split(',')[1]
 
-            // Call Supabase Edge Function
-            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-            const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-            const response = await fetch(`${supabaseUrl}/functions/v1/processReceipt`, {
+            // Call Next.js API Route
+            const response = await fetch('/api/receipt', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${supabaseKey}`,
                 },
+                credentials: 'include', // Include cookies for auth
                 body: JSON.stringify({
-                    userId,
                     imageBase64: base64Data,
                 }),
             })

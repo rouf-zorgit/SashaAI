@@ -194,14 +194,12 @@ export function ReceiptReviewDialog({
                             </Select>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>Wallet</Label>
-                            <WalletPicker
-                                wallets={wallets}
-                                value={formData.walletId}
-                                onValueChange={val => setFormData({ ...formData, walletId: val })}
-                            />
-                        </div>
+                        <WalletPicker
+                            wallets={wallets}
+                            value={formData.walletId}
+                            onValueChange={val => setFormData({ ...formData, walletId: val })}
+                            label="Wallet"
+                        />
 
                         <div className="space-y-2">
                             <Label>Notes / Items</Label>

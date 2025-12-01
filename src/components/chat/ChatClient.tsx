@@ -113,6 +113,7 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', // Include cookies for auth
                 body: JSON.stringify({
                     messages: [
                         ...messages.map(m => ({ role: m.role, content: m.content })),

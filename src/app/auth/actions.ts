@@ -136,27 +136,25 @@ export async function completeOnboarding(data: {
     }
     console.log('Profile updated successfully:', profileData)
 
-    // Create default wallet if balance provided
-    if (data.current_balance !== undefined) {
-        console.log('Creating default wallet with balance:', data.current_balance)
-        const { error: walletError, data: walletData } = await supabase
-            .from('wallets')
-            .insert({
-                user_id: user.id,
-                name: 'Main Account',
-                type: 'cash', // Default type, user can change later
-                balance: data.current_balance,
-                currency: data.currency,
-                is_default: true
-            })
-            .select()
+    // Always create default wallet for new users
+    console.log('Creating default wallet with balance:', data.current_balance || 0)
+    const { error: walletError, data: walletData } = await supabase
+        .from('wallets')
+        .insert({
+            user_id: user.id,
+            name: 'Main Account',
+            type: 'cash', // Default type, user can change later
+            balance: data.current_balance || 0,
+            currency: data.currency,
+            is_default: true
+        })
+        .select()
 
-        if (walletError) {
-            console.error('Failed to create default wallet:', walletError)
-            // Don't fail onboarding if wallet creation fails, just log it
-        } else {
-            console.log('Default wallet created:', walletData)
-        }
+    if (walletError) {
+        console.error('Failed to create default wallet:', walletError)
+        // Don't fail onboarding if wallet creation fails, just log it
+    } else {
+        console.log('Default wallet created:', walletData)
     }
 
     revalidatePath('/', 'layout')

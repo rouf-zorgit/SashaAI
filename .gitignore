@@ -133,3 +133,5 @@ env_backup*.txt
 .env.docker
 .env.staging
 .env.production
+
+/src/generated/prisma

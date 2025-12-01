@@ -1,0 +1,217 @@
+// This is your Prisma schema file
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model profiles {
+  id                   String         @id @db.Uuid
+  email                String
+  full_name            String?
+  country              String?
+  currency             String?        @default("BDT")
+  monthly_salary       Decimal?       @db.Decimal(10, 2)
+  savings_amount       Decimal?       @default(0) @db.Decimal(10, 2)
+  total_loans          Decimal?       @default(0) @db.Decimal(10, 2)
+  primary_goal         String?
+  onboarding_completed Boolean?       @default(false)
+  created_at           DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?      @default(now()) @db.Timestamptz(6)
+  
+  transactions         transactions[]
+  messages             messages[]
+  wallets              wallets[]
+  goals                goals[]
+  notifications        notifications[]
+  reminders            reminders[]
+  wallet_transfers     wallet_transfers[]
+  wallet_adjustments   wallet_adjustments[]
+  loans                loans[]
+  loan_payments        loan_payments[]
+  receipt_uploads      receipt_uploads[]
+}
+
+model transactions {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String    @db.Uuid
+  wallet_id   String?   @db.Uuid
+  amount      Decimal   @db.Decimal(10, 2)
+  category    String
+  type        String
+  description String?
+  date        DateTime? @default(now()) @db.Timestamptz(6)
+  deleted_at  DateTime? @db.Timestamptz(6)
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+  
+  user        profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  wallet      wallets?  @relation(fields: [wallet_id], references: [id], onDelete: SetNull)
+  
+  @@index([user_id])
+  @@index([date(sort: Desc)])
+}
+
+model messages {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  session_id String?   @db.Uuid
+  role       String
+  content    String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  
+  user       profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@index([user_id])
+  @@index([created_at(sort: Desc)])
+}
+
+model wallets {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  name       String
+  type       String
+  balance    Decimal   @default(0) @db.Decimal(10, 2)
+  currency   String?   @default("BDT")
+  is_default Boolean?  @default(false)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  
+  user                  profiles             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  transactions          transactions[]
+  wallet_transfers_from wallet_transfers[]   @relation("from_wallet")
+  wallet_transfers_to   wallet_transfers[]   @relation("to_wallet")
+  wallet_adjustments    wallet_adjustments[]
+  
+  @@index([user_id])
+}
+
+model wallet_transfers {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  from_wallet_id  String    @db.Uuid
+  to_wallet_id    String    @db.Uuid
+  amount          Decimal   @db.Decimal(10, 2)
+  description     String?
+  transfer_date   DateTime? @default(now()) @db.Timestamptz(6)
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  
+  user            profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  from_wallet     wallets   @relation("from_wallet", fields: [from_wallet_id], references: [id], onDelete: Cascade)
+  to_wallet       wallets   @relation("to_wallet", fields: [to_wallet_id], references: [id], onDelete: Cascade)
+  
+  @@index([user_id])
+}
+
+model wallet_adjustments {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  wallet_id       String    @db.Uuid
+  amount          Decimal   @db.Decimal(10, 2)
+  reason          String
+  adjustment_date DateTime? @default(now()) @db.Timestamptz(6)
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  
+  user            profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  wallet          wallets   @relation(fields: [wallet_id], references: [id], onDelete: Cascade)
+  
+  @@index([user_id])
+}
+
+model loans {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String          @db.Uuid
+  lender_name     String
+  principal       Decimal         @db.Decimal(10, 2)
+  interest_rate   Decimal?        @db.Decimal(5, 2)
+  remaining       Decimal         @db.Decimal(10, 2)
+  due_date        DateTime?       @db.Timestamptz(6)
+  status          String          @default("active")
+  created_at      DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?       @default(now()) @db.Timestamptz(6)
+  
+  user            profiles        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  loan_payments   loan_payments[]
+  
+  @@index([user_id])
+}
+
+model loan_payments {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  loan_id      String    @db.Uuid
+  user_id      String    @db.Uuid
+  amount       Decimal   @db.Decimal(10, 2)
+  payment_date DateTime? @default(now()) @db.Timestamptz(6)
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  
+  loan         loans     @relation(fields: [loan_id], references: [id], onDelete: Cascade)
+  user         profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@index([loan_id])
+  @@index([user_id])
+}
+
+model goals {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String    @db.Uuid
+  title       String
+  target      Decimal   @db.Decimal(10, 2)
+  current     Decimal?  @default(0) @db.Decimal(10, 2)
+  deadline    DateTime? @db.Timestamptz(6)
+  status      String?   @default("active")
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+  
+  user        profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@index([user_id])
+}
+
+model notifications {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  title      String
+  message    String
+  type       String
+  read       Boolean?  @default(false)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  
+  user       profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@index([user_id])
+  @@index([created_at(sort: Desc)])
+}
+
+model reminders {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String    @db.Uuid
+  title       String
+  description String?
+  due_date    DateTime  @db.Timestamptz(6)
+  completed   Boolean?  @default(false)
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  
+  user        profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@index([user_id])
+  @@index([due_date])
+}
+
+model receipt_uploads {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String    @db.Uuid
+  file_path   String
+  uploaded_at DateTime? @default(now()) @db.Timestamptz(6)
+  
+  user        profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@index([user_id])
+  @@index([uploaded_at(sort: Desc)])
+}
