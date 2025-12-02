@@ -4,5 +4,15 @@
             "source": "/(.*)",
             "destination": "/index.html"
         }
+    ],
+    "crons": [
+        {
+            "path": "/api/cron/daily-notifications",
+            "schedule": "0 9 * * *"
+        },
+        {
+            "path": "/api/cron/weekly-summary",
+            "schedule": "0 9 * * 1"
+        }
     ]
 }

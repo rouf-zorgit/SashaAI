@@ -20,6 +20,7 @@ export async function getTransactionsWithFilters(
         .from('transactions')
         .select('*, wallet:wallets(id, name, type, currency)')
         .eq('user_id', userId)
+        .is('deleted_at', null)  // ✅ Filter out deleted transactions
         .order('created_at', { ascending: false })
 
     if (filters.type) {

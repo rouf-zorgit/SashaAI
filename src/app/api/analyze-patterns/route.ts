@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
         const transactions = await prisma.transactions.findMany({
             where: {
                 user_id: authenticatedUserId,
+                deleted_at: null,  // ✅ FIXED: Filter out deleted transactions
                 created_at: {
                     gte: ninetyDaysAgo
                 }
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
         // A. RECURRING PAYMENTS DETECTION
         // ==========================================
         const merchantGroups: Record<string, any[]> = {}
-        transactions.forEach(t => {
+        transactions.forEach((t: any) => {
             if (t.type === 'expense') {
                 const key = t.description || 'Unknown'
                 if (!merchantGroups[key]) merchantGroups[key] = []
@@ -77,13 +78,18 @@ export async function POST(req: NextRequest) {
                 }
 
                 if (isRecurring && count > 0) {
-                    const avgAmount = txs.reduce((sum, t) => sum + Number(t.amount), 0) / txs.length
+                    const avgAmount = txs.reduce((sum: number, t: any) => sum + Number(t.amount), 0) / txs.length
+                    const avgInterval = totalInterval / count
                     results.push({
-                        type: 'recurring',
-                        merchant,
-                        avgAmount,
-                        frequency: 'monthly',
-                        confidence: 0.9
+                        type: 'recurring_payment',
+                        insight: `Found recurring payment: ${merchant} - ৳${avgAmount.toFixed(0)} every ${Math.round(avgInterval)} days`,
+                        recommendation: `This subscription costs ৳${(avgAmount * 12).toFixed(0)} annually. Consider if you're getting value from this service.`,
+                        data: {
+                            merchant,
+                            avgAmount,
+                            frequency: 'monthly',
+                            confidence: 0.9
+                        }
                     })
                 }
             }
@@ -95,7 +101,7 @@ export async function POST(req: NextRequest) {
         let weekendSum = 0, weekendCount = 0
         let weekdaySum = 0, weekdayCount = 0
 
-        transactions.forEach(t => {
+        transactions.forEach((t: any) => {
             if (t.type === 'expense' && t.created_at) {
                 const day = new Date(t.created_at).getDay()
                 if (day === 0 || day === 6) {
@@ -110,20 +116,25 @@ export async function POST(req: NextRequest) {
 
         const avgWeekend = weekendCount > 0 ? weekendSum / weekendCount : 0
         const avgWeekday = weekdayCount > 0 ? weekdaySum / weekdayCount : 0
+        const pctIncrease = avgWeekday > 0 ? ((avgWeekend - avgWeekday) / avgWeekday * 100) : 0
 
         if (avgWeekend > avgWeekday * 1.5 && avgWeekend > 1000) {
             results.push({
-                type: 'weekend_spike',
-                avgWeekend,
-                avgWeekday,
-                confidence: 0.85
+                type: 'weekend_pattern',
+                insight: `You spend ${pctIncrease.toFixed(0)}% more on weekends (৳${avgWeekend.toFixed(0)} vs ৳${avgWeekday.toFixed(0)} on weekdays)`,
+                recommendation: `Plan weekend activities with a budget to control spending. Try setting a weekend spending limit.`,
+                data: {
+                    avgWeekend,
+                    avgWeekday,
+                    confidence: 0.85
+                }
             })
         }
 
         // ==========================================
         // C. PAYDAY SPLURGE DETECTION
         // ==========================================
-        const incomes = transactions.filter(t => t.type === 'income' && Number(t.amount) > 5000)
+        const incomes = transactions.filter((t: any) => t.type === 'income' && Number(t.amount) > 5000)
 
         for (const income of incomes) {
             if (!income.created_at) continue
@@ -132,18 +143,23 @@ export async function POST(req: NextRequest) {
             const limitDate = incomeDate + (48 * 60 * 60 * 1000)
 
             const splurgeSum = transactions
-                .filter(t => t.type === 'expense' &&
+                .filter((t: any) => t.type === 'expense' &&
                     t.created_at &&
                     new Date(t.created_at).getTime() > incomeDate &&
                     new Date(t.created_at).getTime() < limitDate)
-                .reduce((sum, t) => sum + Number(t.amount), 0)
+                .reduce((sum: number, t: any) => sum + Number(t.amount), 0)
 
             if (splurgeSum > Number(income.amount) * 0.3) {
+                const pct = (splurgeSum / Number(income.amount) * 100).toFixed(0)
                 results.push({
-                    type: 'payday_splurge',
-                    income: income.amount,
-                    spent48h: splurgeSum,
-                    confidence: 0.9
+                    type: 'unusual_activity',
+                    insight: `You spent ${pct}% of your income (৳${splurgeSum.toFixed(0)}) within 48 hours of receiving ৳${Number(income.amount).toFixed(0)}`,
+                    recommendation: `Consider waiting 24-48 hours before making large purchases after payday to avoid impulse spending.`,
+                    data: {
+                        income: income.amount,
+                        spent48h: splurgeSum,
+                        confidence: 0.9
+                    }
                 })
                 break
             }
@@ -156,7 +172,7 @@ export async function POST(req: NextRequest) {
         const categorySums: Record<string, number> = {}
         let totalSpend = 0
 
-        transactions.forEach(t => {
+        transactions.forEach((t: any) => {
             if (t.type === 'expense') {
                 const cat = t.category || 'Uncategorized'
                 categoryCounts[cat] = (categoryCounts[cat] || 0) + 1
@@ -167,15 +183,22 @@ export async function POST(req: NextRequest) {
 
         for (const [cat, count] of Object.entries(categoryCounts)) {
             const amount = categorySums[cat]
-            if ((amount > totalSpend * 0.2 && cat !== 'Rent' && cat !== 'Bills') || count > 60) {
+            const pctOfTotal = totalSpend > 0 ? (amount / totalSpend) : 0
+
+            if ((pctOfTotal > 0.2 && cat !== 'Rent' && cat !== 'Bills') || count > 60) {
                 results.push({
-                    type: 'impulse_category',
-                    category: cat,
-                    totalCount: count,
-                    totalAmount: amount,
-                    avgAmount: amount / count,
-                    pctOfTotal: amount / totalSpend,
-                    confidence: 0.85
+                    type: 'overspending',
+                    insight: `${cat} represents ${(pctOfTotal * 100).toFixed(0)}% of your spending (৳${amount.toFixed(0)} across ${count} transactions)`,
+                    recommendation: `Set a monthly limit for ${cat} to control spending in this category.`,
+                    severity: pctOfTotal > 0.3 ? 'high' : 'medium',
+                    data: {
+                        category: cat,
+                        totalCount: count,
+                        totalAmount: amount,
+                        avgAmount: amount / count,
+                        pctOfTotal: pctOfTotal,
+                        confidence: 0.85
+                    }
                 })
             }
         }

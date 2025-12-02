@@ -142,7 +142,7 @@ export async function completeOnboarding(data: {
         .from('wallets')
         .insert({
             user_id: user.id,
-            name: 'Main Account',
+            name: 'Cash in Hand',
             type: 'cash', // Default type, user can change later
             balance: data.current_balance || 0,
             currency: data.currency,

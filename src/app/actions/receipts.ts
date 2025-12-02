@@ -38,17 +38,19 @@ export async function extractReceiptData(base64Image: string, mediaType: string 
   "amount": number (total amount),
   "currency": "BDT" or detected currency code,
   "merchant": "store/restaurant name",
-  "category": "Groceries" | "Dining" | "Transport" | "Shopping" | "Entertainment" | "Healthcare" | "Utilities" | "Other",
+  "category": "groceries" | "dining" | "transport" | "shopping" | "entertainment" | "healthcare" | "bills" | "other",
   "date": "YYYY-MM-DD" (receipt date, or today if not visible),
   "items": ["item1", "item2"] (optional, main items purchased)
 }
+
+IMPORTANT: category must be lowercase (groceries, dining, transport, shopping, entertainment, healthcare, bills, or other)
 
 If you cannot read the receipt clearly, return:
 {
   "error": "Could not read receipt clearly. Please try a clearer image."
 }
 
-IMPORTANT: Return ONLY the JSON object, no additional text or explanation.`,
+Return ONLY the JSON object, no additional text or explanation.`,
                         },
                     ],
                 },
@@ -151,8 +153,8 @@ export async function uploadReceipt(formData: FormData) {
         .from('receipts')
         .getPublicUrl(filename)
 
-    // Track upload for rate limiting
-    await trackUpload(publicUrl)
+    // ✅ FIXED: Don't track upload yet - only track when transaction is saved
+    // This prevents quota from decreasing on failed saves or cancellations
 
     return { success: true, url: publicUrl, path: filename }
 }

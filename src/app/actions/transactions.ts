@@ -205,24 +205,31 @@ export async function saveReceiptTransaction(data: {
         }
 
         // 3. Verify wallet ownership and get balance
+        console.log('🔍 Verifying wallet:', data.walletId, 'for user:', user.id)
+
         const { data: wallet, error: walletError } = await supabase
             .from('wallets')
-            .select('balance, name, is_active')
+            .select('balance, name')  // ✅ FIXED: Removed is_active (doesn't exist)
             .eq('id', data.walletId)
             .eq('user_id', user.id) // ✅ Verify ownership
             .single()
 
+        console.log('Wallet query result:', { wallet, walletError })
+
         if (walletError || !wallet) {
+            console.error('❌ Wallet not found or error:', walletError)
             return { error: ErrorMessages.wallet.notFound }
         }
 
-        if (!wallet.is_active) {
-            return { error: 'Cannot add transactions to inactive wallet' }
-        }
+        // ✅ REMOVED: is_active check (column doesn't exist in table)
+        // All wallets are considered active
 
         // 4. Business logic: Check balance
-        const newBalance = wallet.balance - data.amount
+        const newBalance = Number(wallet.balance) - data.amount
+        console.log('💰 Balance check:', { current: wallet.balance, amount: data.amount, new: newBalance })
+
         if (newBalance < 0) {
+            console.error('❌ Insufficient balance')
             return { error: `Insufficient balance. Current: ${wallet.balance}, Required: ${data.amount}` }
         }
 
@@ -266,9 +273,34 @@ export async function saveReceiptTransaction(data: {
             }
         }
 
+        // ✅ FIXED: Track upload ONLY after successful save
+        // This ensures quota only decreases for completed transactions
+        await supabase
+            .from('receipt_uploads')
+            .insert({
+                user_id: user.id,
+                file_path: data.receiptUrl,  // ✅ FIXED: Schema uses file_path, not receipt_url
+                uploaded_at: new Date().toISOString()
+            })
+
+        // ✅ ADD: Send chat message to confirm receipt saved
+        const sessionId = crypto.randomUUID()
+        const confirmationMessage = `✅ Receipt saved successfully!\n\n💰 **Amount:** ৳${data.amount.toFixed(2)}\n🏪 **Merchant:** ${data.merchant}\n📁 **Category:** ${data.category.charAt(0).toUpperCase() + data.category.slice(1)}\n💳 **Wallet:** ${wallet.name}\n\nYour transaction has been recorded and your wallet balance has been updated to ৳${newBalance.toFixed(2)}.`
+
+        await supabase.from('messages').insert([
+            {
+                user_id: user.id,
+                session_id: sessionId,
+                role: 'assistant',
+                content: confirmationMessage,
+                created_at: new Date().toISOString()
+            }
+        ])
+
         invalidateUserCache(user.id)
         revalidatePath('/history')
         revalidatePath('/profile')
+        revalidatePath('/chat')  // ✅ Also revalidate chat to show new message
 
         return { success: true, transaction: savedTx }
     } catch (error: any) {

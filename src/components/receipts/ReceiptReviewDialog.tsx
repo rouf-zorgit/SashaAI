@@ -13,6 +13,8 @@ import { toast } from 'sonner'
 import { deleteReceipt } from '@/app/actions/receipts'
 import { getWallets, Wallet } from '@/app/actions/wallet'
 import { saveReceiptTransaction } from '@/app/actions/transactions'
+import { FundingSourceDialog } from '@/components/dialogs/FundingSourceDialog'
+import type { InsufficientFundsError } from '@/app/actions/insufficient-funds'
 
 interface ReceiptReviewDialogProps {
     open: boolean
@@ -35,11 +37,13 @@ export function ReceiptReviewDialog({
 }: ReceiptReviewDialogProps) {
     const [loading, setLoading] = useState(false)
     const [wallets, setWallets] = useState<Wallet[]>([])
+    const [showFundingDialog, setShowFundingDialog] = useState(false)
+    const [insufficientFundsError, setInsufficientFundsError] = useState<InsufficientFundsError | null>(null)
     const [formData, setFormData] = useState({
         amount: data.amount?.toString() || '',
         merchant: data.merchant || '',
         date: data.date || new Date().toISOString().split('T')[0],
-        category: data.category || 'Other',
+        category: data.category || 'other',  // ✅ FIXED: lowercase default
         description: data.items ? data.items.join(', ') : '',
         walletId: ''
     })
@@ -64,7 +68,7 @@ export function ReceiptReviewDialog({
                 amount: data.amount?.toString() || '',
                 merchant: data.merchant || '',
                 date: data.date || new Date().toISOString().split('T')[0],
-                category: data.category || 'Other',
+                category: data.category || 'other',  // ✅ FIXED: lowercase default
                 description: data.items ? data.items.join(', ') : '',
             }))
         }
@@ -78,15 +82,26 @@ export function ReceiptReviewDialog({
 
         setLoading(true)
         try {
+            // ✅ FIXED: Convert date to ISO datetime format (YYYY-MM-DDT00:00:00Z)
+            const dateTime = new Date(formData.date + 'T00:00:00Z').toISOString()
+            
             const result = await saveReceiptTransaction({
                 amount: parseFloat(formData.amount),
                 category: formData.category,
                 description: formData.description || `Receipt from ${formData.merchant}`,
-                date: formData.date,
+                date: dateTime,  // ✅ Now in correct ISO format
                 receiptUrl: receiptUrl,
                 walletId: formData.walletId,
                 merchant: formData.merchant
-            })
+            }) as any  // ✅ Type assertion to handle dynamic error response
+
+            // Check for insufficient funds error
+            if (result.error === 'insufficient_funds' && result.insufficientFundsData) {
+                setInsufficientFundsError(result.insufficientFundsData)
+                setShowFundingDialog(true)
+                setLoading(false)
+                return
+            }
 
             if (result.error) {
                 toast.error(result.error)
@@ -182,14 +197,14 @@ export function ReceiptReviewDialog({
                                     <SelectValue placeholder="Select category" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="Groceries">Groceries</SelectItem>
-                                    <SelectItem value="Dining">Dining</SelectItem>
-                                    <SelectItem value="Transport">Transport</SelectItem>
-                                    <SelectItem value="Shopping">Shopping</SelectItem>
-                                    <SelectItem value="Entertainment">Entertainment</SelectItem>
-                                    <SelectItem value="Healthcare">Healthcare</SelectItem>
-                                    <SelectItem value="Utilities">Utilities</SelectItem>
-                                    <SelectItem value="Other">Other</SelectItem>
+                                    <SelectItem value="groceries">Groceries</SelectItem>
+                                    <SelectItem value="dining">Dining</SelectItem>
+                                    <SelectItem value="transport">Transport</SelectItem>
+                                    <SelectItem value="shopping">Shopping</SelectItem>
+                                    <SelectItem value="entertainment">Entertainment</SelectItem>
+                                    <SelectItem value="healthcare">Healthcare</SelectItem>
+                                    <SelectItem value="bills">Bills & Utilities</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -222,6 +237,24 @@ export function ReceiptReviewDialog({
                     </Button>
                 </DialogFooter>
             </DialogContent>
+
+            {/* Insufficient Funds Dialog */}
+            {insufficientFundsError && (
+                <FundingSourceDialog
+                    open={showFundingDialog}
+                    onOpenChange={setShowFundingDialog}
+                    error={insufficientFundsError}
+                    availableWallets={wallets.map(w => ({
+                        id: w.id,
+                        name: w.name,
+                        balance: w.balance
+                    }))}
+                    onSuccess={() => {
+                        // Retry saving the transaction after funding source is added
+                        handleSave()
+                    }}
+                />
+            )}
         </Dialog>
     )
 }

@@ -48,6 +48,59 @@ export async function POST(req: NextRequest) {
         }
 
         // =====================================================================
+        // FAST PATH: Quick responses for greetings/simple questions
+        // =====================================================================
+        const lowerMessage = message.toLowerCase().trim().replace(/[\?\!\.]/g, '')
+        const isSimpleGreeting = /^(hi|hello|hey|how are you|what's up|whats up|sup|good morning|good evening)$/i.test(lowerMessage)
+
+        if (isSimpleGreeting) {
+            console.log('⚡ Fast path: Simple greeting detected')
+
+            // Quick response without heavy context - using if-else for type safety
+            let reply = "Hi! How can I help you today?"
+
+            if (lowerMessage === 'hi') {
+                reply = "Hi there! How can I help you with your finances today?"
+            } else if (lowerMessage === 'hello') {
+                reply = "Hello! Ready to help you manage your money. What's up?"
+            } else if (lowerMessage === 'hey') {
+                reply = "Hey! What can I do for you today?"
+            } else if (lowerMessage === 'how are you') {
+                reply = "I'm doing great, thanks for asking! Always happy to help you manage your money."
+            } else if (lowerMessage === "what's up" || lowerMessage === 'whats up') {
+                reply = "Not much! Just here to help with your finances. What do you need?"
+            } else if (lowerMessage === 'sup') {
+                reply = "Hey! Ready to track some expenses or check your balance?"
+            } else if (lowerMessage === 'good morning') {
+                reply = "Good morning! Let's make today financially awesome!"
+            } else if (lowerMessage === 'good evening') {
+                reply = "Good evening! How can I help you tonight?"
+            }
+
+            // Save messages
+            await Promise.all([
+                prisma.messages.create({
+                    data: { user_id: authenticatedUserId, session_id: sessionId, role: 'user', content: message }
+                }),
+                prisma.messages.create({
+                    data: { user_id: authenticatedUserId, session_id: sessionId, role: 'assistant', content: reply }
+                })
+            ])
+
+            const fastTime = performance.now() - startTime
+            console.log(`⚡ Fast path completed in ${Math.round(fastTime)}ms`)
+
+            return NextResponse.json({
+                mode: 'conversation',
+                reply: reply,
+                intent: 'greeting',
+                confidence: 1.0,
+                transactions: [],
+                executionTime: Math.round(fastTime)
+            })
+        }
+
+        // =====================================================================
         // STEP 1: FETCH USER CONTEXT (Using Prisma)
         // =====================================================================
         console.log('🚀 Fetching user context...')
@@ -79,7 +132,7 @@ export async function POST(req: NextRequest) {
                     deleted_at: null
                 },
                 orderBy: { created_at: 'desc' },
-                take: 20,
+                take: 5,  // ✅ Reduced from 20 to 5 for faster queries
                 select: {
                     amount: true,
                     category: true,
@@ -103,7 +156,7 @@ export async function POST(req: NextRequest) {
                     session_id: sessionId
                 },
                 orderBy: { created_at: 'desc' },
-                take: 10,
+                take: 5,  // ✅ Reduced from 10 to 5 for faster queries
                 select: {
                     role: true,
                     content: true,
@@ -117,21 +170,25 @@ export async function POST(req: NextRequest) {
         // Build conversation history
         const conversationHistory = sessionMessages
             .reverse()
-            .map(m => ({
+            .map((m: { role: string; content: string }) => ({
                 role: m.role === 'user' ? 'user' as const : 'assistant' as const,
                 content: m.content
             }))
 
         // Calculate metrics
         const todayStart = new Date().toISOString().split('T')[0]
-        const todaysTransactions = recentTransactions.filter(t =>
+        const todaysTransactions = recentTransactions.filter((t: { created_at: Date | null }) =>
             t.created_at && t.created_at.toISOString() >= todayStart
         )
         const todaySpending = todaysTransactions
-            .map(t => `${t.amount} ${userProfile?.currency || 'BDT'} at ${t.description || t.category}`)
+            .map((t: { amount: any; description: string | null; category: string }) =>
+                `${t.amount} ${userProfile?.currency || 'BDT'} at ${t.description || t.category}`
+            )
             .join(', ')
 
-        const totalBalance = userWallets.reduce((sum, w) => sum + Number(w.balance || 0), 0)
+        const totalBalance = userWallets.reduce((sum: number, w: { balance: any }) =>
+            sum + Number(w.balance || 0), 0
+        )
 
         // =====================================================================
         // STEP 2: BUILD ENHANCED SYSTEM PROMPT
@@ -143,57 +200,34 @@ export async function POST(req: NextRequest) {
         const style = profile?.communication_style || 'friendly'
 
         const walletSummary = userWallets.length > 0
-            ? userWallets.map(w => `${w.name}: ${w.balance} ${w.currency}`).join(', ')
+            ? userWallets.map((w: { name: string; balance: any; currency: string | null }) =>
+                `${w.name}: ${w.balance} ${w.currency}`
+            ).join(', ')
             : 'No wallets set up'
 
-        const systemPrompt = `You are Sasha, a warm and friendly financial assistant who talks like a helpful friend, not a robot.
+        const systemPrompt = `You are Sasha, a friendly financial assistant.
 
-        USER INFO:
-        - Name: ${userName}
-        - Monthly Income: ${salaryText}
-        - Goal: ${goal}
-        - Total Balance: ${totalBalance} ${userProfile?.currency || 'BDT'}
-        - Wallets: ${walletSummary}
-        ${todaySpending ? `- Today's spending: ${todaySpending}` : ''}
-        ${activeLoans.length > 0 ? `- Active loans: ${activeLoans.length}` : ''}
+USER: ${userName} | Balance: ${totalBalance} ${userProfile?.currency || 'BDT'} | Wallets: ${walletSummary}
 
-        HOW TO RESPOND:
-        - Be warm, natural, and conversational - like a supportive friend
-        - Keep responses SHORT (1-2 sentences max)
-        - Use the user's name sometimes, but not every message
-        - Celebrate their wins, be gentle about overspending
-        - No bullet points, no formal language, no robotic responses
-        - Sound human - use contractions (I'm, you're, that's), casual phrases
+RULES:
+- Keep replies SHORT (1-2 sentences)
+- Be warm and conversational
+- Detect transactions: "spent 500 lunch" → extract amount, category, type
 
-        TRANSACTION DETECTION:
-        When user mentions spending or income, extract it. Examples:
-        - "spent 500 on lunch" → expense, 500, food
-        - "got paid 50000" → income, 50000, salary
-        - "bought coffee for 150" → expense, 150, food
+RESPOND IN JSON:
+{
+  "reply": "short friendly message",
+  "intent": "transaction" | "conversation",
+  "confidence": 0.9,
+  "transactions": [{"amount": 500, "category": "food", "type": "expense", "description": "lunch"}]
+}
 
-        RESPOND IN THIS JSON FORMAT ONLY:
-        {
-        "reply": "your natural, friendly response here",
-        "intent": "transaction" | "conversation",
-        "confidence": 0.9,
-        "transactions": [
-            {
-            "amount": 500,
-            "category": "food",
-            "merchant": "lunch",
-            "type": "expense",
-            "currency": "BDT",
-            "description": "lunch"
-            }
-        ]
-        }
-
-        If no transaction detected, return empty transactions array [].
-        Never include markdown, code blocks, or explanation - just the JSON.`
+If no transaction: transactions = []`
 
         // =====================================================================
-        // STEP 3: CALL CLAUDE API
+        // STEP 3: CALL CLAUDE API (with timeout and error handling)
         // =====================================================================
+        const CLAUDE_TIMEOUT = 25000 // 25 seconds
         const aiStart = performance.now()
         const anthropic = new Anthropic({ apiKey: anthropicKey })
 
@@ -202,20 +236,96 @@ export async function POST(req: NextRequest) {
             { role: 'user' as const, content: message }
         ]
 
-        const aiResponse = await anthropic.messages.create({
-            model: 'claude-3-5-haiku-20241022',
-            max_tokens: 1024,
-            system: systemPrompt + '\n\nIMPORTANT: You must respond with valid JSON only, no other text.',
-            messages,
-            temperature: 0.7
-        })
+        let aiResponse
+        let parsed
 
-        console.log(`⏱️ Claude API: ${Math.round(performance.now() - aiStart)}ms`)
+        try {
+            console.log('🤖 Calling Claude API...')
 
-        let responseText = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '{}'
-        // Remove markdown code blocks if present
-        responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-        const parsed = JSON.parse(responseText)
+            // ✅ FIX: Add timeout to prevent hanging
+            aiResponse = await Promise.race([
+                anthropic.messages.create({
+                    model: 'claude-3-5-haiku-20241022',
+                    max_tokens: 512,  // ✅ Reduced from 1024 to 512 for faster responses
+                    system: systemPrompt + '\n\nIMPORTANT: You must respond with valid JSON only, no other text.',
+                    messages,
+                    temperature: 0.7
+                }),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('CLAUDE_TIMEOUT')), CLAUDE_TIMEOUT)
+                )
+            ])
+
+            console.log(`⏱️ Claude API: ${Math.round(performance.now() - aiStart)}ms`)
+
+            let responseText = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '{}'
+            // Remove markdown code blocks if present
+            responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+
+            try {
+                parsed = JSON.parse(responseText)
+            } catch (parseError) {
+                console.error('❌ Failed to parse Claude response:', responseText)
+                throw new Error('INVALID_JSON_RESPONSE')
+            }
+
+        } catch (apiError: unknown) {
+            console.error('❌ Claude API Error:', apiError)
+
+            // Save user message even if AI fails
+            await prisma.messages.create({
+                data: {
+                    user_id: authenticatedUserId,
+                    session_id: sessionId,
+                    role: 'user',
+                    content: message,
+                }
+            })
+
+            // Type-safe error handling
+            const error = apiError as { message?: string; status?: number }
+
+            // Determine error message and retry timing
+            let errorReply = "Oops! Something went wrong on my end. Mind trying that again? 😊"
+            let retryAfter = 0
+
+            if (error.message === 'CLAUDE_TIMEOUT') {
+                errorReply = "Hey! I'm taking a bit longer than usual. Try again in a sec? ⏰"
+                retryAfter = 5
+            } else if (error.message === 'INVALID_JSON_RESPONSE') {
+                errorReply = "I'm having trouble understanding. Could you rephrase that? 🤔"
+                retryAfter = 0
+            } else if (error.status === 429) {
+                errorReply = "Whoa, lots of messages! Give me 30 seconds to catch my breath. 😅"
+                retryAfter = 30
+            } else if (error.status === 500 || error.status === 503) {
+                errorReply = "My AI brain is having a moment. Try again in a few seconds? 🧠"
+                retryAfter = 10
+            } else if (error.status === 401) {
+                errorReply = "There's a configuration issue. Please contact support!"
+                console.error('🚨 CRITICAL: Invalid Anthropic API key')
+            }
+
+            // Save error response
+            await prisma.messages.create({
+                data: {
+                    user_id: authenticatedUserId,
+                    session_id: sessionId,
+                    role: 'assistant',
+                    content: errorReply,
+                }
+            })
+
+            return NextResponse.json({
+                mode: 'conversation',
+                reply: errorReply,
+                intent: 'error',
+                confidence: 0,
+                retryAfter,
+                transactions: []
+            }, { status: 200 }) // Return 200 to prevent frontend error states
+        }
+
 
         // =====================================================================
         // STEP 4: SAVE USER MESSAGE TO DB
@@ -235,11 +345,60 @@ export async function POST(req: NextRequest) {
         const savedTransactionIds: string[] = []
 
         if (parsed.transactions && Array.isArray(parsed.transactions) && parsed.transactions.length > 0) {
+            // ✅ FIX: Get user's default wallet or first available wallet
+            const userWallet = await prisma.wallets.findFirst({
+                where: {
+                    user_id: authenticatedUserId,
+                    is_default: true
+                }
+            })
+
+            let targetWallet = userWallet
+            if (!targetWallet) {
+                targetWallet = await prisma.wallets.findFirst({
+                    where: { user_id: authenticatedUserId }
+                })
+            }
+
+            // If user has no wallets, return friendly error
+            if (!targetWallet) {
+                await prisma.messages.create({
+                    data: {
+                        user_id: authenticatedUserId,
+                        session_id: sessionId,
+                        role: 'assistant',
+                        content: "Hey! You need to create a wallet first before I can track expenses. Head to the Wallets page to set one up! 💰",
+                    }
+                })
+
+                return NextResponse.json({
+                    mode: 'conversation',
+                    reply: "Hey! You need to create a wallet first before I can track expenses. Head to the Wallets page to set one up! 💰",
+                    intent: 'error',
+                    confidence: 0,
+                    transactions: []
+                })
+            }
+
             for (const tx of parsed.transactions) {
+                // ✅ FIX: Validate amount
+                const amount = Number(tx.amount)
+                if (isNaN(amount) || amount <= 0) {
+                    console.log('⚠️ Invalid amount detected:', tx.amount)
+                    continue // Skip invalid transactions
+                }
+
+                if (amount > 10000000) {
+                    console.log('⚠️ Suspicious large amount:', amount)
+                    // Still process but log for review
+                }
+
+                // ✅ FIX: Create transaction WITH wallet_id
                 const savedTx = await prisma.transactions.create({
                     data: {
                         user_id: authenticatedUserId,
-                        amount: tx.amount,
+                        wallet_id: targetWallet.id,  // ✅ FIXED: Now linked to wallet
+                        amount: amount,
                         type: tx.type,
                         category: tx.category,
                         description: tx.description,
@@ -249,6 +408,22 @@ export async function POST(req: NextRequest) {
 
                 if (savedTx) {
                     savedTransactionIds.push(savedTx.id)
+
+                    // ✅ FIX: Update wallet balance immediately
+                    const currentBalance = Number(targetWallet.balance)
+                    const newBalance = tx.type === 'expense'
+                        ? currentBalance - amount
+                        : currentBalance + amount
+
+                    await prisma.wallets.update({
+                        where: { id: targetWallet.id },
+                        data: {
+                            balance: newBalance,
+                            updated_at: new Date()
+                        }
+                    })
+
+                    console.log(`✅ Updated wallet "${targetWallet.name}": ৳${currentBalance} → ৳${newBalance}`)
                 }
             }
 

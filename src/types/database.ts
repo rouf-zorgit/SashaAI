@@ -5,8 +5,8 @@ export interface Goal {
     target_amount: number
     current_amount: number
     deadline: string | null
-    category: string
-    is_completed: boolean
+    category: string | null
+    is_completed: boolean | null
     created_at: string
     updated_at: string
 }

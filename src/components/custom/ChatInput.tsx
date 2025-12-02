@@ -8,20 +8,23 @@ import { Send } from 'lucide-react'
 interface ChatInputProps {
     onSend: (message: string) => void
     disabled?: boolean
+    isLoading?: boolean
     placeholder?: string
+    leftActions?: React.ReactNode
 }
 
-export function ChatInput({ onSend, disabled, placeholder }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, isLoading, placeholder, leftActions }: ChatInputProps) {
     const [message, setMessage] = useState('')
     const textareaRef = useRef<HTMLTextAreaElement>(null)
 
     const handleSend = () => {
-        if (message.trim() && !disabled) {
+        if (message.trim() && !disabled && !isLoading) {
             onSend(message.trim())
             setMessage('')
             // Reset textarea height
             if (textareaRef.current) {
                 textareaRef.current.style.height = 'auto'
+                textareaRef.current.focus()
             }
         }
     }
@@ -45,7 +48,12 @@ export function ChatInput({ onSend, disabled, placeholder }: ChatInputProps) {
 
     return (
         <div className="border-t bg-background p-4">
-            <div className="flex gap-2 max-w-4xl mx-auto">
+            <div className="flex gap-2 max-w-4xl mx-auto items-end">
+                {leftActions && (
+                    <div className="flex-shrink-0">
+                        {leftActions}
+                    </div>
+                )}
                 <Textarea
                     ref={textareaRef}
                     value={message}
@@ -55,10 +63,11 @@ export function ChatInput({ onSend, disabled, placeholder }: ChatInputProps) {
                     disabled={disabled}
                     className="min-h-[44px] max-h-[120px] resize-none"
                     rows={1}
+                    autoFocus
                 />
                 <Button
                     onClick={handleSend}
-                    disabled={disabled || !message.trim()}
+                    disabled={disabled || isLoading || !message.trim()}
                     size="icon"
                     className="h-11 w-11 cursor-pointer flex-shrink-0"
                 >

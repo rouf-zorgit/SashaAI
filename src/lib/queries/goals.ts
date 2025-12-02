@@ -25,17 +25,49 @@ export async function createGoal(
 ) {
     const supabase = createClient()
 
+    console.log('🎯 Creating goal with data:', {
+        user_id: userId,
+        title: goal.title,
+        target_amount: goal.target_amount,
+        current_amount: 0,
+        deadline: goal.deadline,
+        category: goal.category,
+        is_completed: false
+    })
+
     const { data, error } = await supabase
         .from('goals')
         .insert({
             user_id: userId,
-            ...goal,
+            title: goal.title,
+            target_amount: goal.target_amount,
+            current_amount: 0,
+            deadline: goal.deadline ? new Date(goal.deadline).toISOString() : null,
+            category: goal.category || 'general',
+            is_completed: false
         })
         .select()
-        .single()
+        .abortSignal(AbortSignal.timeout(10000)) // 10 second timeout
 
-    if (error) throw error
-    return data
+    if (error) {
+        console.error('❌ Goal creation error:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+        })
+        throw error
+    }
+
+    const createdGoal = data && data.length > 0 ? data[0] : null
+
+    if (!createdGoal) {
+        console.error('❌ No goal returned from insert')
+        throw new Error('Goal creation failed - no data returned')
+    }
+
+    console.log('✅ Goal created successfully:', createdGoal)
+    return createdGoal
 }
 
 export async function updateGoalProgress(
@@ -48,15 +80,17 @@ export async function updateGoalProgress(
         .from('goals')
         .update({
             current_amount: currentAmount,
-            updated_at: new Date().toISOString(),
-            is_completed: false, // Logic should be handled by caller or DB trigger, but simple check here
+            updated_at: new Date().toISOString()
         })
         .eq('id', goalId)
         .select()
-        .single()
 
-    if (error) throw error
-    return data
+    if (error) {
+        console.error('Goal update error:', error)
+        throw error
+    }
+
+    return data && data.length > 0 ? data[0] : null
 }
 
 export async function deleteGoal(goalId: string) {

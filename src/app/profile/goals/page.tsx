@@ -25,7 +25,7 @@ export default async function GoalsPage() {
             return <GoalsClient initialGoals={[]} />
         }
 
-        return <GoalsClient initialGoals={goals || []} />
+        return <GoalsClient initialGoals={goals || []} userId={user.id} />
 
     } catch (error) {
         console.error('Goals page error:', error)

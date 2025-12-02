@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { markNotificationRead, markAllNotificationsRead, getTransactionsWithFilters } from '@/lib/queries/history'
@@ -38,6 +38,7 @@ export function HistoryClient({ initialTransactions, initialNotifications, user,
     const [editingTransaction, setEditingTransaction] = useState<any | null>(null)
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
+    const isFirstMount = useRef(true) // Track first mount
     const router = useRouter()
     const searchParams = useSearchParams()
     const typeFilter = searchParams.get('type') // 'income' or 'expense'
@@ -60,11 +61,22 @@ export function HistoryClient({ initialTransactions, initialNotifications, user,
     }
 
     // Refresh data when wallet filter, search, or type filter changes
+    // DISABLED: Using only server-side data for now to avoid client-side query issues
+    // TODO: Fix client-side Supabase query auth
+    /*
     useEffect(() => {
+        // Skip on first mount - use server data
+        if (isFirstMount.current) {
+            isFirstMount.current = false
+            console.log('⏭️ Skipping initial refresh, using server data')
+            return
+        }
+        
         console.log('🔍 Filter changed, refreshing data...', { walletFilter, search, typeFilter })
         refreshData()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [walletFilter, search, typeFilter])
+    */
 
     const handleEdit = (transaction: any) => {
         console.log('✏️ Opening edit dialog for:', transaction.id);
@@ -106,8 +118,8 @@ export function HistoryClient({ initialTransactions, initialNotifications, user,
 
         // Apply search filter
         if (search && !(
-            t.description.toLowerCase().includes(search.toLowerCase()) ||
-            t.category.toLowerCase().includes(search.toLowerCase())
+            (t.description && t.description.toLowerCase().includes(search.toLowerCase())) ||
+            (t.category && t.category.toLowerCase().includes(search.toLowerCase()))
         )) return false
 
         // Apply wallet filter
@@ -158,7 +170,7 @@ export function HistoryClient({ initialTransactions, initialNotifications, user,
                                     console.log('💳 Wallet filter changed to:', e.target.value)
                                     setWalletFilter(e.target.value)
                                 }}
-                                className="px-3 py-2 border rounded-md bg-background text-sm min-w-[150px]"
+                                className="px-3 py-2 pr-8 border rounded-md bg-background text-sm min-w-[150px] appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTEgMUw2IDZMMTEgMSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+')] bg-[length:12px] bg-[right_0.75rem_center] bg-no-repeat"
                             >
                                 <option value="all">All Wallets</option>
                                 {wallets.map((wallet) => (

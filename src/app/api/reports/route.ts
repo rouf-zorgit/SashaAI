@@ -1,42 +1,40 @@
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import { ReportsClient } from '@/components/reports/ReportsClient'
-import { getProfile } from '@/lib/db/profiles'
 
-export const dynamic = 'force-dynamic'
-
-export default async function ReportsPage() {
+export async function GET(req: NextRequest) {
     try {
         const supabase = await createClient()
         const { data: { user }, error: authError } = await supabase.auth.getUser()
 
         if (authError || !user) {
-            redirect('/login')
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
         }
 
-        // Fetch profile for currency
-        const profile = await getProfile(supabase, user.id)
-        const currency = profile?.currency || 'BDT'
+        // Get month and year from query params
+        const searchParams = req.nextUrl.searchParams
+        const month = parseInt(searchParams.get('month') || String(new Date().getMonth() + 1))
+        const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()))
 
-        // Get current month date range
-        const now = new Date()
-        const year = now.getFullYear()
-        const month = now.getMonth() + 1
+        // Calculate date range
         const startDate = new Date(year, month - 1, 1).toISOString()
         const endDate = new Date(year, month, 0, 23, 59, 59).toISOString()
 
-        // Fetch transactions for the current month
+        // Fetch transactions for the month
         const { data: transactions, error: txError } = await supabase
             .from('transactions')
             .select('*')
             .eq('user_id', user.id)
-            .is('deleted_at', null)  // ✅ Filter out deleted transactions
+            .is('deleted_at', null)
             .gte('created_at', startDate)
             .lte('created_at', endDate)
             .order('created_at', { ascending: false })
 
         if (txError) {
             console.error('Transactions error:', txError)
+            return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 })
         }
 
         // Calculate report data
@@ -60,31 +58,13 @@ export default async function ReportsPage() {
             transactions: transactions || []
         }
 
-        // Fetch wallets
-        const { data: wallets } = await supabase
-            .from('wallets')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('is_default', { ascending: false })
+        return NextResponse.json(reportData)
 
-        return (
-            <ReportsClient
-                initialData={reportData}
-                wallets={wallets || []}
-                user={user}
-                currency={currency}
-            />
-        )
-
-    } catch (error) {
-        console.error('Reports page error:', error)
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
-                    <p className="text-muted-foreground">Please refresh the page</p>
-                </div>
-            </div>
+    } catch (error: any) {
+        console.error('Reports API error:', error)
+        return NextResponse.json(
+            { error: 'Internal server error' },
+            { status: 500 }
         )
     }
 }

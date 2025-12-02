@@ -94,6 +94,12 @@ export default async function ProfilePage() {
                     <h2 className="text-lg font-semibold mb-3">Menu</h2>
                     <div className="space-y-3">
                         <MenuCard
+                            icon="📈"
+                            title="Financial Insights"
+                            description="Spending patterns and recommendations"
+                            href="/insights"
+                        />
+                        <MenuCard
                             icon="🎯"
                             title="Goals"
                             description="Set and track savings goals"

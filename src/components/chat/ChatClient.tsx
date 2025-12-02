@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ChatMessage } from '@/components/custom/ChatMessage'
 import { ChatInput } from '@/components/custom/ChatInput'
+import { ChatReceiptPicker } from '@/components/chat/ChatReceiptPicker'
 import { ReceiptUploadDialog } from '@/components/receipts/ReceiptUploadDialog'
 import { Button } from '@/components/ui/button'
 import { LogOut, Receipt, AlertCircle, RefreshCw, Loader2 } from 'lucide-react'
@@ -24,6 +25,7 @@ interface ChatClientProps {
 export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClientProps) {
     const [messages, setMessages] = useState<Message[]>(initialMessages)
     const [isLoading, setIsLoading] = useState(false)
+    const [loadingMessage, setLoadingMessage] = useState('Sasha is typing...')  // ✅ NEW: Dynamic loading message
     const [sessionId, setSessionId] = useState<string | null>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -116,6 +118,20 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
         setMessages(prev => [...prev, tempUserMessage])
         setIsLoading(true)
 
+        // ✅ NEW: Smart loading state logic
+        const startTime = Date.now()
+        setLoadingMessage('Sasha is typing...')
+
+        // Timer 1: After 2 seconds, switch to "thinking"
+        const thinkingTimer = setTimeout(() => {
+            setLoadingMessage('Sasha is thinking...')
+        }, 2000)
+
+        // Timer 2: After 6 seconds (if still loading), switch back to "typing"
+        const backToTypingTimer = setTimeout(() => {
+            setLoadingMessage('Sasha is typing...')
+        }, 6000)
+
         try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
@@ -126,6 +142,17 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
                     sessionId: currentSessionId,
                 }),
             })
+
+            // Clear timers when response arrives
+            clearTimeout(thinkingTimer)
+            clearTimeout(backToTypingTimer)
+
+            // If response took < 2s, it was fast - keep "typing"
+            // If response took > 2s, show "typing" for last moment
+            const duration = Date.now() - startTime
+            if (duration > 2000) {
+                setLoadingMessage('Sasha is typing...')
+            }
 
             if (!response.ok) {
                 // Handle HTTP errors
@@ -282,7 +309,7 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
 
                     {isLoading && (
                         <div className="flex items-center gap-2 text-muted-foreground p-4">
-                            <div className="animate-pulse">Sasha is typing...</div>
+                            <div className="animate-pulse">{loadingMessage}</div>
                         </div>
                     )}
 
@@ -312,8 +339,15 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
             <div className="flex-shrink-0">
                 <ChatInput
                     onSend={handleSendMessage}
-                    disabled={isLoading || rateLimitCountdown > 0}
+                    disabled={rateLimitCountdown > 0}
+                    isLoading={isLoading}
                     placeholder={rateLimitCountdown > 0 ? `Please wait ${rateLimitCountdown}s...` : "Type a message..."}
+                    leftActions={
+                        <ChatReceiptPicker
+                            onSuccess={() => toast.success('Receipt saved successfully!')}
+                            disabled={isLoading || rateLimitCountdown > 0}
+                        />
+                    }
                 />
             </div>
         </div>

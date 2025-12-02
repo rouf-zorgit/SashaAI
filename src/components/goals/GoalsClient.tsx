@@ -14,18 +14,18 @@ import Link from 'next/link'
 
 interface GoalsClientProps {
     initialGoals: Goal[]
+    userId: string
 }
 
-export function GoalsClient({ initialGoals }: GoalsClientProps) {
+export function GoalsClient({ initialGoals, userId }: GoalsClientProps) {
     const router = useRouter()
-    const { user, profile } = useAuthStore()
+    const { profile } = useAuthStore()
     const [goals, setGoals] = useState<Goal[]>(initialGoals)
     const [showAddDialog, setShowAddDialog] = useState(false)
 
     const refreshGoals = async () => {
-        if (!user) return
         try {
-            const data = await getUserGoals(user.id)
+            const data = await getUserGoals(userId)
             setGoals(data)
             router.refresh() // Refresh server components too
         } catch (error) {
@@ -132,7 +132,7 @@ export function GoalsClient({ initialGoals }: GoalsClientProps) {
                 <AddGoalDialog
                     isOpen={showAddDialog}
                     onClose={() => setShowAddDialog(false)}
-                    userId={user?.id || ''}
+                    userId={userId}
                     onSuccess={refreshGoals}
                 />
             </div>

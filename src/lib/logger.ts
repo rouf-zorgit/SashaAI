@@ -1,11 +1,18 @@
+const isDev = process.env.NODE_ENV === 'development'
+
 export const logger = {
     info: (message: string, data?: any) => {
-        console.log(JSON.stringify({ level: 'info', message, data, timestamp: new Date().toISOString() }))
+        if (isDev) {
+            console.log(JSON.stringify({ level: 'info', message, data, timestamp: new Date().toISOString() }))
+        }
     },
     warn: (message: string, data?: any) => {
-        console.warn(JSON.stringify({ level: 'warn', message, data, timestamp: new Date().toISOString() }))
+        if (isDev) {
+            console.warn(JSON.stringify({ level: 'warn', message, data, timestamp: new Date().toISOString() }))
+        }
     },
     error: (message: string, error?: any) => {
+        // Always log errors, even in production
         console.error(JSON.stringify({
             level: 'error',
             message,

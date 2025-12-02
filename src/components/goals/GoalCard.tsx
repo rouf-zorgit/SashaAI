@@ -30,7 +30,7 @@ export function GoalCard({ goal, currency, onUpdate, onDelete }: GoalCardProps) 
                             🎯 {goal.title}
                             {isCompleted && <span className="text-sm text-green-600">✓ Completed</span>}
                         </h3>
-                        <p className="text-sm text-muted-foreground capitalize">{goal.category}</p>
+                        {goal.category && <p className="text-sm text-muted-foreground capitalize">{goal.category}</p>}
                     </div>
                     <Button
                         variant="ghost"

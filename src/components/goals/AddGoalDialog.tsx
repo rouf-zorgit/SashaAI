@@ -27,24 +27,53 @@ export function AddGoalDialog({ isOpen, onClose, userId, onSuccess }: AddGoalDia
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+
+        // Validate user ID first
+        if (!userId || userId === '') {
+            console.error('❌ No user ID available')
+            toast.error('Authentication error - please refresh the page')
+            return
+        }
+
+        console.log('👤 User ID:', userId)
+
+        // Validate inputs
+        if (!formData.title.trim()) {
+            toast.error('Please enter a goal title')
+            return
+        }
+
+        if (!formData.target_amount || parseFloat(formData.target_amount) <= 0) {
+            toast.error('Please enter a valid target amount')
+            return
+        }
+
         setLoading(true)
 
         try {
-            await createGoal(userId, {
-                title: formData.title,
+            const result = await createGoal(userId, {
+                title: formData.title.trim(),
                 target_amount: parseFloat(formData.target_amount),
                 deadline: formData.deadline || undefined,
                 category: formData.category
             })
 
+            console.log('Goal created successfully:', result)
             toast.success('Goal created successfully!')
-            onSuccess()
-            onClose()
+
+            // Reset form
             setFormData({ title: '', target_amount: '', deadline: '', category: 'general' })
-        } catch (error) {
+
+            // Call success callback
+            onSuccess()
+
+            // Close dialog
+            onClose()
+        } catch (error: any) {
             console.error('Error creating goal:', error)
-            toast.error('Failed to create goal')
+            toast.error(error.message || 'Failed to create goal')
         } finally {
+            // Always reset loading state
             setLoading(false)
         }
     }
