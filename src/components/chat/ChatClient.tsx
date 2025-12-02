@@ -95,6 +95,13 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
 
         setErrorState(null) // Clear previous errors
 
+        // Ensure we have a session ID
+        let currentSessionId = sessionId
+        if (!currentSessionId) {
+            currentSessionId = crypto.randomUUID()
+            setSessionId(currentSessionId)
+        }
+
         // Optimistic update
         const tempUserMessage: Message = {
             id: `temp-${Date.now()}`,
@@ -103,7 +110,7 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
             content,
             created_at: new Date().toISOString(),
             // @ts-ignore
-            session_id: sessionId || ''
+            session_id: currentSessionId
         }
 
         setMessages(prev => [...prev, tempUserMessage])
@@ -115,18 +122,18 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include', // Include cookies for auth
                 body: JSON.stringify({
-                    messages: [
-                        ...messages.map(m => ({ role: m.role, content: m.content })),
-                        { role: 'user', content }
-                    ],
-                    sessionId,
+                    message: content,
+                    sessionId: currentSessionId,
                 }),
             })
 
             if (!response.ok) {
                 // Handle HTTP errors
                 const status = response.status
-                let errorMsg = 'Failed to send message'
+                const responseText = await response.text()
+                console.error('Chat API Error:', status, response.statusText, responseText)
+
+                let errorMsg = `Failed to send message (${status})`
                 let type = 'network'
 
                 if (status === 429) {
@@ -136,6 +143,14 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
                 } else if (status >= 500) {
                     errorMsg = 'Sasha is temporarily unavailable.'
                     type = 'api_error'
+                } else {
+                    // Try to parse error message from server
+                    try {
+                        const json = JSON.parse(responseText)
+                        if (json.error) errorMsg = json.error
+                    } catch (e) {
+                        // Use default
+                    }
                 }
 
                 throw new Error(JSON.stringify({ msg: errorMsg, type }))
@@ -153,52 +168,26 @@ export function ChatClient({ initialMessages, user, currency = 'USD' }: ChatClie
                 session_id: sessionId || ''
             }])
 
-            const reader = response.body?.getReader()
-            if (!reader) throw new Error(JSON.stringify({ msg: 'Connection lost', type: 'network' }))
+            // Parse JSON response
+            const data = await response.json()
 
-            const decoder = new TextDecoder()
-            let accumulatedContent = ''
-            let buffer = ''
+            if (data.error) {
+                throw new Error(JSON.stringify({ msg: data.error, type: 'api_error' }))
+            }
 
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
+            // Update assistant message with actual content
+            setMessages(prev => prev.map(m =>
+                m.id === assistantMessageId ? { ...m, content: data.reply } : m
+            ))
 
-                buffer += decoder.decode(value, { stream: true })
-                const parts = buffer.split('\n\n')
-                buffer = parts.pop() || ''
+            // Handle transactions if present
+            if (data.transactions?.length > 0) {
+                const symbol = currency === 'BDT' ? '৳' : currency === 'USD' ? '$' : currency
+                const total = data.transactions.reduce((sum: number, tx: any) => sum + tx.amount, 0)
+                toast.success(`${data.transactions.length} transactions saved! Total: ${symbol}${total}`)
 
-                for (const part of parts) {
-                    if (part.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(part.slice(6))
-
-                            if (data.type === 'text') {
-                                accumulatedContent += data.content
-                                const cleanContent = accumulatedContent
-                                    .replace(/\[TRANSACTION:[^\]]+\]/g, '')
-                                    .replace(/\[TRANSFER:[^\]]+\]/g, '')
-
-                                setMessages(prev => prev.map(m =>
-                                    m.id === assistantMessageId ? { ...m, content: cleanContent } : m
-                                ))
-                            } else if (data.type === 'data') {
-                                if (data.sessionId && !sessionId) setSessionId(data.sessionId)
-                                if (data.transactions?.length > 0) {
-                                    const symbol = currency === 'BDT' ? '৳' : currency === 'USD' ? '$' : currency
-                                    const total = data.transactions.reduce((sum: number, tx: any) => sum + tx.amount, 0)
-                                    toast.success(`${data.transactions.length} transactions saved! Total: ${symbol}${total}`)
-                                }
-                            } else if (data.type === 'error') {
-                                throw new Error(JSON.stringify({ msg: data.error, type: data.code || 'api_error' }))
-                            }
-                        } catch (e: any) {
-                            // If it's our thrown error, rethrow it
-                            if (e.message && e.message.startsWith('{')) throw e
-                            console.error('Error parsing SSE:', e)
-                        }
-                    }
-                }
+                // Refresh history/balance if needed
+                // router.refresh() 
             }
 
         } catch (error: any) {

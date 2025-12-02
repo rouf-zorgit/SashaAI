@@ -16,6 +16,7 @@ interface ChatRequest {
 }
 
 export async function POST(req: NextRequest) {
+    console.log('📝 Chat API called')
     const startTime = performance.now()
 
     try {
@@ -52,69 +53,63 @@ export async function POST(req: NextRequest) {
         console.log('🚀 Fetching user context...')
         const contextStart = performance.now()
 
-        // Fetch user profile
-        const userProfile = await prisma.profiles.findUnique({
-            where: { id: authenticatedUserId },
-            select: {
-                full_name: true,
-                email: true,
-                currency: true,
-                monthly_salary: true,
-                primary_goal: true,
-            }
-        })
-
-        // Fetch user wallets
-        const userWallets = await prisma.wallets.findMany({
-            where: { user_id: authenticatedUserId },
-            select: {
-                name: true,
-                balance: true,
-                currency: true,
-            }
-        })
-
-        // Fetch recent transactions
-        const recentTransactions = await prisma.transactions.findMany({
-            where: {
-                user_id: authenticatedUserId,
-                deleted_at: null
-            },
-            orderBy: { created_at: 'desc' },
-            take: 20,
-            select: {
-                amount: true,
-                category: true,
-                description: true,
-                created_at: true,
-            }
-        })
-
-        // Fetch active loans
-        const activeLoans = await prisma.loans.findMany({
-            where: {
-                user_id: authenticatedUserId,
-                status: 'active'
-            },
-            select: {
-                lender_name: true,
-                remaining: true,
-            }
-        })
-
-        // Fetch session messages
-        const sessionMessages = await prisma.messages.findMany({
-            where: {
-                user_id: authenticatedUserId,
-                session_id: sessionId
-            },
-            orderBy: { created_at: 'desc' },
-            take: 10,
-            select: {
-                role: true,
-                content: true,
-            }
-        })
+        // Fetch all data in parallel for speed
+        const [userProfile, userWallets, recentTransactions, activeLoans, sessionMessages] = await Promise.all([
+            prisma.profiles.findUnique({
+                where: { id: authenticatedUserId },
+                select: {
+                    full_name: true,
+                    email: true,
+                    currency: true,
+                    monthly_salary: true,
+                    primary_goal: true,
+                }
+            }),
+            prisma.wallets.findMany({
+                where: { user_id: authenticatedUserId },
+                select: {
+                    name: true,
+                    balance: true,
+                    currency: true,
+                }
+            }),
+            prisma.transactions.findMany({
+                where: {
+                    user_id: authenticatedUserId,
+                    deleted_at: null
+                },
+                orderBy: { created_at: 'desc' },
+                take: 20,
+                select: {
+                    amount: true,
+                    category: true,
+                    description: true,
+                    created_at: true,
+                }
+            }),
+            prisma.loans.findMany({
+                where: {
+                    user_id: authenticatedUserId,
+                    is_active: true
+                },
+                select: {
+                    provider: true,
+                    remaining_amount: true,
+                }
+            }),
+            prisma.messages.findMany({
+                where: {
+                    user_id: authenticatedUserId,
+                    session_id: sessionId
+                },
+                orderBy: { created_at: 'desc' },
+                take: 10,
+                select: {
+                    role: true,
+                    content: true,
+                }
+            })
+        ])
 
         const contextTime = performance.now() - contextStart
         console.log(`✅ User context fetched in ${Math.round(contextTime)}ms`)
@@ -151,54 +146,55 @@ export async function POST(req: NextRequest) {
             ? userWallets.map(w => `${w.name}: ${w.balance} ${w.currency}`).join(', ')
             : 'No wallets set up'
 
-        const systemPrompt = `You are Sasha, a ${style} financial assistant.
+        const systemPrompt = `You are Sasha, a warm and friendly financial assistant who talks like a helpful friend, not a robot.
 
-USER PROFILE:
-- Name: ${userName}
-- Monthly Income: ${salaryText}
-- Primary Goal: ${goal}
-- Total Balance: ${totalBalance} ${userProfile?.currency || 'BDT'}
-- Active Wallets: ${walletSummary}
+        USER INFO:
+        - Name: ${userName}
+        - Monthly Income: ${salaryText}
+        - Goal: ${goal}
+        - Total Balance: ${totalBalance} ${userProfile?.currency || 'BDT'}
+        - Wallets: ${walletSummary}
+        ${todaySpending ? `- Today's spending: ${todaySpending}` : ''}
+        ${activeLoans.length > 0 ? `- Active loans: ${activeLoans.length}` : ''}
 
-${todaySpending ? `TODAY'S SPENDING:\n${todaySpending}` : ''}
+        HOW TO RESPOND:
+        - Be warm, natural, and conversational - like a supportive friend
+        - Keep responses SHORT (1-2 sentences max)
+        - Use the user's name sometimes, but not every message
+        - Celebrate their wins, be gentle about overspending
+        - No bullet points, no formal language, no robotic responses
+        - Sound human - use contractions (I'm, you're, that's), casual phrases
 
-${activeLoans.length > 0 ? `ACTIVE LOANS: ${activeLoans.length} loan(s)` : ''}
+        TRANSACTION DETECTION:
+        When user mentions spending or income, extract it. Examples:
+        - "spent 500 on lunch" → expense, 500, food
+        - "got paid 50000" → income, 50000, salary
+        - "bought coffee for 150" → expense, 150, food
 
-PERSONALITY:
-${style === 'friendly' ? '- Be warm, encouraging, and conversational' : ''}
-${style === 'formal' ? '- Be professional, concise, and direct' : ''}
-${style === 'simple' ? '- Use very simple language, like explaining to a grandmother' : ''}
+        RESPOND IN THIS JSON FORMAT ONLY:
+        {
+        "reply": "your natural, friendly response here",
+        "intent": "transaction" | "conversation",
+        "confidence": 0.9,
+        "transactions": [
+            {
+            "amount": 500,
+            "category": "food",
+            "merchant": "lunch",
+            "type": "expense",
+            "currency": "BDT",
+            "description": "lunch"
+            }
+        ]
+        }
 
-CORE INSTRUCTIONS:
-1. Extract ALL transactions from user message (can be multiple)
-2. For each transaction, determine: amount, category, merchant, type (income/expense)
-3. Keep responses under 2 sentences
-4. Use the user's name when appropriate
-5. Reference their salary/goal/balance when relevant
-
-RESPONSE FORMAT (JSON):
-{
-  "reply": "your response (max 2 sentences)",
-  "intent": "transaction" | "conversation" | "undo" | "query",
-  "confidence": 0.0-1.0,
-  "transactions": [
-    {
-      "amount": number,
-      "category": string,
-      "merchant": string,
-      "type": "expense" | "income",
-      "currency": "BDT",
-      "description": string
-    }
-  ]
-}
-
-If no transactions detected, return empty transactions array.
-`
+        If no transaction detected, return empty transactions array [].
+        Never include markdown, code blocks, or explanation - just the JSON.`
 
         // =====================================================================
         // STEP 3: CALL CLAUDE API
         // =====================================================================
+        const aiStart = performance.now()
         const anthropic = new Anthropic({ apiKey: anthropicKey })
 
         const messages = [
@@ -207,14 +203,19 @@ If no transactions detected, return empty transactions array.
         ]
 
         const aiResponse = await anthropic.messages.create({
-            model: 'claude-3-5-sonnet-20240620',
+            model: 'claude-3-5-haiku-20241022',
             max_tokens: 1024,
             system: systemPrompt + '\n\nIMPORTANT: You must respond with valid JSON only, no other text.',
             messages,
             temperature: 0.7
         })
 
-        const parsed = JSON.parse(aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '{}')
+        console.log(`⏱️ Claude API: ${Math.round(performance.now() - aiStart)}ms`)
+
+        let responseText = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '{}'
+        // Remove markdown code blocks if present
+        responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+        const parsed = JSON.parse(responseText)
 
         // =====================================================================
         // STEP 4: SAVE USER MESSAGE TO DB
@@ -252,10 +253,8 @@ If no transactions detected, return empty transactions array.
             }
 
             // Update reply with transaction count
-            if (savedTransactionIds.length > 0) {
-                const summary = parsed.transactions.map((t: any) => `${t.amount} BDT (${t.category})`).join(', ')
-                parsed.reply = `Done! Saved ${savedTransactionIds.length} transaction(s): ${summary}.`
-            }
+            // Keep Sasha's natural reply - don't overwrite it
+            // The AI already confirms the transaction in a friendly way
         }
 
         // =====================================================================

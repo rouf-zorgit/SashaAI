@@ -111,9 +111,9 @@ export function EditWalletDialog({ wallet, open, onOpenChange }: EditWalletDialo
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="bank">Bank Account</SelectItem>
-                                <SelectItem value="mobile_wallet">Mobile Wallet</SelectItem>
+                                <SelectItem value="mobile">Mobile Wallet</SelectItem>
                                 <SelectItem value="cash">Cash</SelectItem>
-                                <SelectItem value="savings">Savings</SelectItem>
+                                <SelectItem value="card">Card</SelectItem>
                                 <SelectItem value="other">Other</SelectItem>
                             </SelectContent>
                         </Select>
